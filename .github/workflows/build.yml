@@ -85,10 +85,12 @@ jobs:
           if-no-files-found: error
 
   # signs from the build artifacts only: no build tool or project dependency runs next to the signing key,
-  # and this job cannot write to the repository
+  # and this job cannot write to the repository.
+  # Runs even if a macOS bundle is missing (GitHub regularly lacks macOS arm64 runners): Windows is still
+  # published, and "Re-run failed jobs" later adds the missing platform to the same release and latest.json.
   sign:
     needs: bundle
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -107,6 +109,13 @@ jobs:
           v="${GITHUB_REF_NAME#v}"
           [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag invalide : $GITHUB_REF_NAME"; exit 1; }
           echo "VERSION=$v" >> "$GITHUB_ENV"
+
+      - name: Bundles present
+        run: |
+          test -f "dist/Sillage_${VERSION}_x64-setup.exe" || { echo "Installateur Windows absent : rien n'est publié"; exit 1; }
+          for f in Sillage_aarch64.app.tar.gz Sillage_x64.app.tar.gz; do
+            test -f "dist/$f" || echo "::warning::$f absent : macOS sera ajouté en relançant le job en échec"
+          done
 
       - name: Release notes
         run: |
@@ -132,7 +141,7 @@ jobs:
       - name: Manifest and checksums
         run: |
           node scripts/latest-json.mjs dist "$VERSION" notes.md > dist/latest.json
-          cd dist && sha256sum *.exe *.dmg *.tar.gz > SHA256SUMS.txt && cat SHA256SUMS.txt
+          cd dist && shopt -s nullglob && sha256sum *.exe *.dmg *.tar.gz > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -145,7 +154,7 @@ jobs:
   # only job with write access to the repository: it runs no build step and holds no signing secret
   github-release:
     needs: sign
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ !cancelled() && needs.sign.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -169,7 +178,8 @@ jobs:
 
   notify-failure:
     needs: [bundle, sign, github-release]
-    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    # a job GitHub could not start ends "cancelled", not "failure": both must alert
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/v') && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -182,5 +192,5 @@ jobs:
           test -n "$PUSHOVER_TOKEN" || exit 0
           curl -fsS -m 10 -o /dev/null --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
             --form-string "title=❌ Sillage : échec de la release" --form-string "priority=1" --form-string "url=$RUN_URL" \
-            --form-string "message=La release $GITHUB_REF_NAME n'a pas abouti. Voir les logs." \
+            --form-string "message=La release $GITHUB_REF_NAME est incomplète ou n'a pas abouti. Voir les logs." \
             https://api.pushover.net/1/messages.json || true
