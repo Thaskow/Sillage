@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Thaskow/Sillage/compare/v0.2.0...v0.2.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **sessions:** l'écran d'ouverture disparaît après 2 s sans sortie visible ([#4](https://github.com/Thaskow/Sillage/issues/4)) ([f643746](https://github.com/Thaskow/Sillage/commit/f64374695f6e09993aebcc1611acd4dc3591ee1e))
+
 ## [0.2.0](https://github.com/Thaskow/Sillage/compare/v0.1.0...v0.2.0) (2026-11-19)
 
 
