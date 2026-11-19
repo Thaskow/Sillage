@@ -9,12 +9,17 @@
 3. Fusionner cette PR crée le tag `vx.y.z` et lance **build** (`.github/workflows/build.yml`) :
    - `bundle` compile l'installateur Windows (NSIS) et les `.dmg` macOS (Apple Silicon et Intel), plus les archives
      `.app.tar.gz` utilisées par les mises à jour macOS ;
-   - `publish`, dans l'environnement protégé `release` (réservé aux tags `v*`), signe les fichiers de mise à jour
-     à partir des seuls artefacts, génère `latest.json` et `SHA256SUMS.txt`, puis crée la Release GitHub.
+   - `sign`, dans l'environnement protégé `release` (réservé aux tags `v*`), signe les fichiers de mise à jour
+     à partir des seuls artefacts et génère `latest.json` et `SHA256SUMS.txt`, sans droit d'écriture sur le dépôt ;
+   - `github-release`, seul job autorisé à écrire, sans aucun secret de signature, joint les fichiers à la Release
+     créée par release-please (son changelog est conservé) ;
+   - `notify-failure` envoie une alerte Pushover si un de ces jobs échoue (secrets `PUSHOVER_TOKEN` et
+     `PUSHOVER_USER` du dépôt ; sans eux, l'étape ne fait rien).
 4. Les applications installées lisent `https://github.com/Thaskow/sillage/releases/latest/download/latest.json`,
    vérifient la signature avec la clé publique de `src-tauri/tauri.conf.json` et proposent la mise à jour.
 
-Un tag `v*` poussé à la main déclenche la même publication. `workflow_dispatch` sur `build` compile sans publier.
+Un tag `v*` poussé à la main déclenche la même publication. Chaque push sur `main`, chaque PR et `workflow_dispatch`
+lancent aussi `bundle` : les installateurs sont compilés et disponibles en artefacts du run, sans rien publier.
 
 ## Clé de signature des mises à jour
 
