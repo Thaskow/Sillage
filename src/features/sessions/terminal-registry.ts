@@ -153,7 +153,7 @@ function host(id: string): Host {
   return hosts.get(id) ?? create(id);
 }
 
-const OPENING_TIMEOUT_MS = 8000;
+const OPENING_TIMEOUT_MS = 2000;
 
 const CONTROL =
   /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]|[\x00-\x20\x7f]/g;
