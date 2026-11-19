@@ -153,6 +153,8 @@ function host(id: string): Host {
   return hosts.get(id) ?? create(id);
 }
 
+const OPENING_TIMEOUT_MS = 8000;
+
 const CONTROL =
   /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]|[\x00-\x20\x7f]/g;
 
@@ -224,13 +226,20 @@ export const terminals = {
     const { setOpening } = useSessions.getState();
     setOpening(id, true);
     let opening = true;
+    const opened = () => {
+      if (!opening) return;
+      opening = false;
+      clearTimeout(timer);
+      setOpening(id, false);
+    };
+    // a slow or silent start must not hide the terminal forever
+    const timer = setTimeout(opened, OPENING_TIMEOUT_MS);
     const decoder = new TextDecoder();
     channel.onmessage = (buf) => {
       const bytes = new Uint8Array(buf);
       h.term.write(bytes);
       if (opening && hasVisibleText(decoder.decode(bytes, { stream: true }))) {
-        opening = false;
-        setOpening(id, false);
+        opened();
       }
     };
     try {
@@ -243,6 +252,7 @@ export const terminals = {
         sessionsIpc.resize(id, h.term.cols, h.term.rows).catch(() => {});
       }
     } catch (e) {
+      opened();
       const msg = errorMessage(e);
       setRuntime(id, { state: "error", error: msg, endedAt: Date.now() });
       h.term.write(`\r\n\x1b[31m${msg}\x1b[0m\r\n`);
