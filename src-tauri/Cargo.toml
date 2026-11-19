@@ -1,0 +1,27 @@
+[package]
+name = "sillage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sillage — espace de travail local pour agents IA et terminaux"
+
+[lib]
+name = "sillage_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+sillage-core = { path = "../crates/sillage-core" }
+sillage-pty = { path = "../crates/sillage-pty" }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-opener = "2"
+tauri = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+ureq = { version = "2", features = ["json"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"

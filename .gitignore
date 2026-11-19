@@ -1,0 +1,9 @@
+node_modules/
+dist/
+target/
+src-tauri/gen/
+.build.log
+.builder.log
+*.tsbuildinfo
+src-tauri/icons/android/
+src-tauri/icons/ios/

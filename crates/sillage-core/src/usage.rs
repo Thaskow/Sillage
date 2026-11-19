@@ -1,0 +1,386 @@
+use std::collections::{BTreeMap, HashSet};
+use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
+
+use serde::Serialize;
+use serde_json::Value;
+
+use crate::profiles::Provider;
+
+const HOUR: i64 = 3_600_000;
+const WEEK: i64 = 7 * 24 * HOUR;
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Tokens {
+    pub input: u64,
+    pub output: u64,
+    pub cache_read: u64,
+    pub cache_write: u64,
+}
+
+impl Tokens {
+    fn add(&mut self, o: Tokens) {
+        self.input += o.input;
+        self.output += o.output;
+        self.cache_read += o.cache_read;
+        self.cache_write += o.cache_write;
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelUsage {
+    pub model: String,
+    pub tokens: Tokens,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Window {
+    pub used_percent: f64,
+    pub window_minutes: Option<u64>,
+    pub resets_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Limits {
+    pub primary: Option<Window>,
+    pub secondary: Option<Window>,
+    pub observed_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Usage {
+    pub last5h: Tokens,
+    pub today: Tokens,
+    pub week: Tokens,
+    pub models: Vec<ModelUsage>,
+    pub sessions: u32,
+    pub last_activity: Option<i64>,
+    pub limits: Option<Limits>,
+}
+
+struct Acc {
+    now: i64,
+    day_start: i64,
+    usage: Usage,
+    models: BTreeMap<String, Tokens>,
+}
+
+impl Acc {
+    fn record(&mut self, at: i64, model: &str, t: Tokens) {
+        if at < self.now - WEEK {
+            return;
+        }
+        self.usage.week.add(t);
+        if at >= self.day_start {
+            self.usage.today.add(t);
+        }
+        if at >= self.now - 5 * HOUR {
+            self.usage.last5h.add(t);
+        }
+        if !model.is_empty() && !model.starts_with('<') {
+            self.models.entry(model.to_string()).or_default().add(t);
+        }
+        self.usage.last_activity = Some(self.usage.last_activity.map_or(at, |l| l.max(at)));
+    }
+}
+
+pub fn parse_timestamp(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' {
+        return None;
+    }
+    let num = |r: std::ops::Range<usize>| s.get(r)?.parse::<i64>().ok();
+    let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    let (hh, mm, ss) = (num(11..13)?, num(14..16)?, num(17..19)?);
+    let mut ms = 0;
+    let mut rest = &s[19..];
+    if let Some(frac) = rest.strip_prefix('.') {
+        let digits: String = frac.chars().take_while(|c| c.is_ascii_digit()).collect();
+        ms = format!("{:0<3}", &digits[..digits.len().min(3)])
+            .parse()
+            .ok()?;
+        rest = &frac[digits.len()..];
+    }
+    let offset = match rest {
+        "" | "Z" => 0,
+        o if o.len() == 6 => {
+            let sign = if o.starts_with('-') { -1 } else { 1 };
+            sign * (o.get(1..3)?.parse::<i64>().ok()? * 60 + o.get(4..6)?.parse::<i64>().ok()?)
+        }
+        _ => return None,
+    };
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(((days * 86_400 + hh * 3_600 + mm * 60 + ss - offset * 60) * 1_000) + ms)
+}
+
+pub(crate) fn recent_jsonl(root: &Path, since: i64, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let Ok(ft) = e.file_type() else { continue };
+        let path = e.path();
+        if ft.is_dir() {
+            recent_jsonl(&path, since, out);
+        } else if ft.is_file() && path.extension().is_some_and(|x| x == "jsonl") {
+            let modified = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map_or(0, |d| d.as_millis() as i64);
+            if modified >= since {
+                out.push(path);
+            }
+        }
+    }
+}
+
+pub(crate) fn lines(path: &Path) -> impl Iterator<Item = String> {
+    fs::File::open(path)
+        .ok()
+        .map(BufReader::new)
+        .into_iter()
+        .flat_map(|r| r.lines().map_while(|l| l.ok()))
+}
+
+fn n(v: &Value, k: &str) -> u64 {
+    v.get(k).and_then(Value::as_u64).unwrap_or(0)
+}
+
+fn claude(dir: &Path, acc: &mut Acc) {
+    let mut files = vec![];
+    recent_jsonl(&dir.join("projects"), acc.now - WEEK, &mut files);
+    let mut seen = HashSet::new();
+    for f in &files {
+        let mut active = false;
+        for line in lines(f) {
+            if !line.contains("\"usage\"") || !line.contains("\"assistant\"") {
+                continue;
+            }
+            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+                continue;
+            };
+            let msg = &v["message"];
+            let usage = &msg["usage"];
+            let (Some(at), true) = (
+                v["timestamp"].as_str().and_then(parse_timestamp),
+                usage.is_object(),
+            ) else {
+                continue;
+            };
+            let key = format!(
+                "{}:{}",
+                msg["id"].as_str().unwrap_or(""),
+                v["requestId"].as_str().unwrap_or("")
+            );
+            if key != ":" && !seen.insert(key) {
+                continue;
+            }
+            let t = Tokens {
+                input: n(usage, "input_tokens"),
+                output: n(usage, "output_tokens"),
+                cache_read: n(usage, "cache_read_input_tokens"),
+                cache_write: n(usage, "cache_creation_input_tokens"),
+            };
+            acc.record(at, msg["model"].as_str().unwrap_or(""), t);
+            active |= at >= acc.now - WEEK;
+        }
+        acc.usage.sessions += u32::from(active);
+    }
+}
+
+fn window(v: &Value, at: i64) -> Option<Window> {
+    let used = v.get("used_percent")?.as_f64()?;
+    let resets_at = v
+        .get("resets_at")
+        .and_then(Value::as_i64)
+        .map(|s| s * 1000)
+        .or_else(|| {
+            v.get("resets_in_seconds")
+                .and_then(Value::as_i64)
+                .map(|s| at + s * 1000)
+        });
+    Some(Window {
+        used_percent: used,
+        window_minutes: v.get("window_minutes").and_then(Value::as_u64),
+        resets_at,
+    })
+}
+
+fn codex(dir: &Path, acc: &mut Acc) {
+    let mut files = vec![];
+    recent_jsonl(&dir.join("sessions"), acc.now - WEEK, &mut files);
+    for f in &files {
+        let mut model = String::new();
+        let mut prev = Tokens::default();
+        let mut active = false;
+        for line in lines(f) {
+            let turn = line.contains("\"turn_context\"");
+            if !turn && !line.contains("\"token_count\"") {
+                continue;
+            }
+            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+                continue;
+            };
+            let p = &v["payload"];
+            if turn {
+                if let Some(m) = p["model"].as_str() {
+                    model = m.to_string();
+                }
+                continue;
+            }
+            let Some(at) = v["timestamp"].as_str().and_then(parse_timestamp) else {
+                continue;
+            };
+            if let Some(rl) = p.get("rate_limits").filter(|r| r.is_object()) {
+                if acc
+                    .usage
+                    .limits
+                    .as_ref()
+                    .is_none_or(|l| l.observed_at <= at)
+                {
+                    acc.usage.limits = Some(Limits {
+                        primary: rl.get("primary").and_then(|w| window(w, at)),
+                        secondary: rl.get("secondary").and_then(|w| window(w, at)),
+                        observed_at: at,
+                    });
+                }
+            }
+            let total = &p["info"]["total_token_usage"];
+            if !total.is_object() {
+                continue;
+            }
+            let cached = n(total, "cached_input_tokens");
+            let cur = Tokens {
+                input: n(total, "input_tokens").saturating_sub(cached),
+                output: n(total, "output_tokens"),
+                cache_read: cached,
+                cache_write: 0,
+            };
+            let delta = Tokens {
+                input: cur.input.saturating_sub(prev.input),
+                output: cur.output.saturating_sub(prev.output),
+                cache_read: cur.cache_read.saturating_sub(prev.cache_read),
+                cache_write: 0,
+            };
+            prev = cur;
+            if delta != Tokens::default() {
+                acc.record(at, &model, delta);
+                active |= at >= acc.now - WEEK;
+            }
+        }
+        acc.usage.sessions += u32::from(active);
+    }
+}
+
+pub fn usage(provider: Provider, dir: &Path, now: i64, day_start: i64) -> Usage {
+    let mut acc = Acc {
+        now,
+        day_start,
+        usage: Usage::default(),
+        models: BTreeMap::new(),
+    };
+    match provider {
+        Provider::Claude => claude(dir, &mut acc),
+        Provider::Codex => codex(dir, &mut acc),
+    }
+    let total = |t: &Tokens| t.input + t.output + t.cache_read + t.cache_write;
+    let mut models: Vec<ModelUsage> = acc
+        .models
+        .into_iter()
+        .map(|(model, tokens)| ModelUsage { model, tokens })
+        .collect();
+    models.sort_by_key(|m| std::cmp::Reverse(total(&m.tokens)));
+    acc.usage.models = models;
+    acc.usage
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_iso_timestamps() {
+        assert_eq!(parse_timestamp("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(
+            parse_timestamp("2026-11-19T10:00:00.250Z"),
+            Some(1_795_082_400_250)
+        );
+        assert_eq!(
+            parse_timestamp("2026-11-19T11:00:00+01:00"),
+            parse_timestamp("2026-11-19T10:00:00Z")
+        );
+        assert_eq!(parse_timestamp("nope"), None);
+    }
+
+    #[test]
+    fn sums_claude_transcripts_once_per_message() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("projects/x");
+        fs::create_dir_all(&p).unwrap();
+        let line = |id: &str, ts: &str| {
+            format!(
+                r#"{{"type":"assistant","requestId":"r{id}","timestamp":"{ts}","message":{{"id":"{id}","model":"claude-opus-5-5","content":"secret","usage":{{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":100,"cache_creation_input_tokens":1}}}}}}"#
+            )
+        };
+        let body = [
+            line("a", "2026-11-19T09:00:00Z"),
+            line("a", "2026-11-19T09:00:00Z"),
+            line("b", "2026-11-18T09:00:00Z"),
+            r#"{"type":"user","message":{"content":"hi"}}"#.into(),
+        ]
+        .join("\n");
+        fs::write(p.join("s.jsonl"), body).unwrap();
+        let now = parse_timestamp("2026-11-19T10:00:00Z").unwrap();
+        let day = parse_timestamp("2026-11-19T00:00:00Z").unwrap();
+        let u = usage(Provider::Claude, d.path(), now, day);
+        assert_eq!(u.week.input, 20);
+        assert_eq!(u.today.output, 5);
+        assert_eq!(u.last5h.cache_read, 100);
+        assert_eq!(u.sessions, 1);
+        assert_eq!(u.models[0].model, "claude-opus-5-5");
+        assert!(u.limits.is_none());
+    }
+
+    #[test]
+    fn reads_codex_deltas_and_latest_limits() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("sessions/2026/11/19");
+        fs::create_dir_all(&p).unwrap();
+        let tc = |ts: &str, input: u64, pct: f64| {
+            format!(
+                r#"{{"timestamp":"{ts}","type":"event_msg","payload":{{"type":"token_count","info":{{"total_token_usage":{{"input_tokens":{input},"cached_input_tokens":0,"output_tokens":1}}}},"rate_limits":{{"primary":{{"used_percent":{pct},"window_minutes":300,"resets_in_seconds":60}},"secondary":null}}}}}}"#
+            )
+        };
+        let body = [
+            r#"{"timestamp":"2026-11-19T09:00:00Z","type":"turn_context","payload":{"model":"gpt-5-codex"}}"#.to_string(),
+            tc("2026-11-19T09:01:00Z", 100, 10.0),
+            tc("2026-11-19T09:02:00Z", 100, 10.0),
+            tc("2026-11-19T09:03:00Z", 150, 12.5),
+        ]
+        .join("\n");
+        fs::write(p.join("rollout-1.jsonl"), body).unwrap();
+        let now = parse_timestamp("2026-11-19T10:00:00Z").unwrap();
+        let u = usage(Provider::Codex, d.path(), now, now - 10 * HOUR);
+        assert_eq!(u.week.input, 150);
+        assert_eq!(u.week.output, 1);
+        assert_eq!(u.models[0].model, "gpt-5-codex");
+        let l = u.limits.unwrap();
+        assert_eq!(l.primary.as_ref().unwrap().used_percent, 12.5);
+        assert_eq!(l.primary.unwrap().window_minutes, Some(300));
+        assert!(l.secondary.is_none());
+    }
+}

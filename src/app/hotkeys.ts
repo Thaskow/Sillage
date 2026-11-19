@@ -1,0 +1,129 @@
+import { useEffect } from "react";
+import { useUi } from "./ui-store";
+import { useSettings } from "@/features/settings/store";
+import { useWorkspace } from "@/features/workspace/store";
+import { useSessions } from "@/features/sessions/store";
+import {
+  closeSession,
+  cycleFocus,
+  newSession,
+} from "@/features/sessions/actions";
+
+export interface Binding {
+  id: string;
+  label: string;
+  keys: string;
+  run: () => void;
+}
+
+export function comboOf(e: KeyboardEvent): string {
+  const parts: string[] = [];
+  if (e.ctrlKey) parts.push("Ctrl");
+  if (e.shiftKey) parts.push("Shift");
+  if (e.altKey) parts.push("Alt");
+  const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  if (!["Control", "Shift", "Alt", "Meta"].includes(k)) parts.push(k);
+  return parts.join("+");
+}
+
+function pinnedGroups() {
+  return useWorkspace.getState().groups.filter((g) => g.pinned && !g.archived);
+}
+
+export const defaultBindings: Binding[] = [
+  {
+    id: "palette",
+    label: "Recherche globale",
+    keys: "Ctrl+K",
+    run: () => useUi.getState().setPalette(true),
+  },
+  {
+    id: "sidebar",
+    label: "Afficher ou masquer la barre latérale",
+    keys: "Ctrl+B",
+    run: () => {
+      const { settings, update } = useSettings.getState();
+      update({ sidebarVisible: !settings.sidebarVisible });
+    },
+  },
+  {
+    id: "new-group",
+    label: "Nouveau groupe",
+    keys: "Ctrl+Shift+N",
+    run: () => useUi.getState().openGroupDialog({ mode: "create" }),
+  },
+  {
+    id: "new-agent",
+    label: "Nouvelle session Claude Code",
+    keys: "Ctrl+T",
+    run: () => void newSession("claude"),
+  },
+  {
+    id: "new-terminal",
+    label: "Nouveau terminal PowerShell",
+    keys: "Ctrl+Shift+T",
+    run: () => void newSession("powershell"),
+  },
+  {
+    id: "close-pane",
+    label: "Fermer le panneau actif",
+    keys: "Ctrl+W",
+    run: () => {
+      const id = useSessions.getState().focusedId;
+      if (id) void closeSession(id);
+    },
+  },
+  {
+    id: "next-pane",
+    label: "Session suivante",
+    keys: "Ctrl+Tab",
+    run: () => cycleFocus(1),
+  },
+  {
+    id: "prev-pane",
+    label: "Session précédente",
+    keys: "Ctrl+Shift+Tab",
+    run: () => cycleFocus(-1),
+  },
+  ...Array.from({ length: 9 }, (_, i) => ({
+    id: `favorite-${i + 1}`,
+    label: `Groupe épinglé ${i + 1}`,
+    keys: `Ctrl+${i + 1}`,
+    run: () => {
+      const g = pinnedGroups()[i];
+      if (!g) return;
+      useWorkspace.getState().select(g.id);
+      useUi.getState().setView("workspace");
+    },
+  })),
+];
+
+const reserved = new Set(defaultBindings.map((b) => b.keys));
+
+export function isReservedCombo(e: KeyboardEvent): boolean {
+  return reserved.has(comboOf(e));
+}
+
+function isTextEditing(t: HTMLElement | null): boolean {
+  if (!t || t.closest(".xterm")) return false;
+  return (
+    t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable
+  );
+}
+
+export function useHotkeys(bindings: Binding[] = defaultBindings) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const b = bindings.find((x) => x.keys === comboOf(e));
+      if (!b) return;
+      if (isTextEditing(e.target as HTMLElement | null) && b.id !== "palette")
+        return;
+      e.preventDefault();
+      e.stopPropagation();
+      b.run();
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
+  }, [bindings]);
+}

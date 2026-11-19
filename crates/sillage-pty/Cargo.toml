@@ -1,0 +1,10 @@
+[package]
+name = "sillage-pty"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+portable-pty = "0.9"
+serde.workspace = true
+thiserror.workspace = true

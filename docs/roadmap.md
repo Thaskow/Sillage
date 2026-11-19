@@ -1,0 +1,14 @@
+# Feuille de route
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Fondations : Tauri, SQLite et migrations, design tokens clair/sombre, densité, barre de titre, groupes (création, renommage inline, couleur, icône, catégories, épinglage, archivage, duplication, glisser-déposer, filtre), paramètres, palette `Ctrl+K`, raccourcis `Ctrl+B`, `Ctrl+1…9`, `Ctrl+Maj+N`. | Fait |
+| 2a | Terminaux réels : ConPTY via `portable-pty` (crate `sillage-pty`), xterm.js, PowerShell / PowerShell 7 / CMD / WSL / Claude Code / Codex détectés, panneaux côte à côte, empilés ou en grille redimensionnables, agrandissement, recherche, copier-coller, liens avec confirmation, vue Agents (état du processus). Les processus vivent dans l'app : ils s'arrêtent à sa fermeture. | Fait |
+| 2b | Démon `sillage-host`, Named Pipe sécurisé, détacher / terminer / forcer, reconnexion réelle après fermeture de la fenêtre. | À faire |
+| 4a | Comptes multiples (inspirés de T3 Code) : un dossier de configuration isolé par compte (`CLAUDE_CONFIG_DIR` / `CODEX_HOME`), connexion officielle depuis Sillage, compte par défaut par groupe, choix du compte dans le menu Agent, badge coloré sur chaque panneau, changement de compte d'une session arrêtée, état « connecté » avec l'e-mail. Configuration habituelle partagée par compte (option), copie des serveurs MCP, compte par défaut global, vue Agents en onglets (Sessions, Consommation par compte avec jetons et limites Codex, Comptes et réglages), logos Claude et Codex. | Fait |
+| 3 | Panneaux multiples (côte à côte, empilés, grille, focus), onglets, glisser-déposer, dispositions par groupe. | À faire |
+| 2c | Espace libre : un espace permanent hors groupe (en tête de la barre latérale) pour lancer terminaux et agents sans rien configurer, puis « Exporter » ses sessions et sa disposition vers un groupe existant ou nouveau. Limites du forfait Claude relevées en permanence (désactivable). Liste des sessions déplacée dans Activité. Raccourcis du navigateur, inspecteur et menu contextuel natif de WebView2 désactivés. | Fait |
+| 4b | Fait : reprise au redémarrage (sessions actives à la fermeture relancées ; Claude Code par `--session-id` puis `--resume`, Codex par `codex resume`, terminaux relancés dans leur dossier). À faire : historique. Barre de consommation activable en haut de l'espace (une ligne par compte, jauges fenêtre 5 h et hebdomadaire) et section dédiée, alimentées uniquement par des données officielles de Claude Code, sinon « Indisponible ». | À faire |
+| 5 | Hooks Claude Code → états fiables, vue Agents, notifications Windows, centre d'activité, recherche FTS5. | À faire |
+| 6 | Finitions, accessibilité, mesures mémoire/CPU/démarrage, audit réseau, raccourcis personnalisables, effacement des données. | À faire |
+| — | SSH (OpenSSH, vérification des clés d'hôte), Codex et autres adaptateurs. | Plus tard |

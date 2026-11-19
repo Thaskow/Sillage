@@ -1,0 +1,197 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef;
+  --surface: #faf9f6;
+  --raised: #ffffff;
+  --sunken: #eceae4;
+  --hover: rgb(30 32 35 / 0.045);
+  --active: rgb(30 32 35 / 0.075);
+  --border: rgb(30 32 35 / 0.085);
+  --border-strong: rgb(30 32 35 / 0.16);
+  --text: #1e2023;
+  --text-2: #55585e;
+  --text-3: #8a8d92;
+  --accent: #2c6b63;
+  --accent-soft: rgb(44 107 99 / 0.1);
+  --accent-text: #ffffff;
+  --ok: #3a8f5a;
+  --wait: #b9801a;
+  --err: #c2463e;
+  --idle: #a2a4a8;
+  --focus: rgb(44 107 99 / 0.45);
+  --shadow-pop:
+    0 1px 2px rgb(20 22 25 / 0.06), 0 8px 24px -6px rgb(20 22 25 / 0.14);
+  --shadow-dialog:
+    0 2px 6px rgb(20 22 25 / 0.06), 0 24px 64px -12px rgb(20 22 25 / 0.24);
+  --scrim: rgb(24 25 28 / 0.28);
+  --terminal-bg: #fbfaf7;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141518;
+  --surface: #1a1b1f;
+  --raised: #212227;
+  --sunken: #111215;
+  --hover: rgb(255 255 255 / 0.04);
+  --active: rgb(255 255 255 / 0.07);
+  --border: rgb(255 255 255 / 0.07);
+  --border-strong: rgb(255 255 255 / 0.13);
+  --text: #e9e8e4;
+  --text-2: #a9aab0;
+  --text-3: #74767d;
+  --accent: #74b8ad;
+  --accent-soft: rgb(116 184 173 / 0.13);
+  --accent-text: #0e1513;
+  --ok: #5fbf80;
+  --wait: #e2a947;
+  --err: #e46b62;
+  --idle: #6c6e75;
+  --focus: rgb(116 184 173 / 0.5);
+  --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -6px rgb(0 0 0 / 0.5);
+  --shadow-dialog:
+    0 2px 6px rgb(0 0 0 / 0.3), 0 28px 72px -12px rgb(0 0 0 / 0.6);
+  --scrim: rgb(0 0 0 / 0.45);
+  --terminal-bg: #17181b;
+}
+
+:root {
+  --row: 32px;
+  --row-sm: 28px;
+  --pad: 12px;
+  --gap: 8px;
+  --fs: 13px;
+  --fs-sm: 12px;
+  --dur: 140ms;
+  --dur-slow: 220ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+:root[data-density="compact"] {
+  --row: 27px;
+  --row-sm: 24px;
+  --pad: 9px;
+  --gap: 6px;
+  --fs: 12.5px;
+  --fs-sm: 11.5px;
+}
+
+:root[data-motion="reduced"] {
+  --dur: 0ms;
+  --dur-slow: 0ms;
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-text);
+  --color-ok: var(--ok);
+  --color-wait: var(--wait);
+  --color-err: var(--err);
+  --color-idle: var(--idle);
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --shadow-pop: var(--shadow-pop);
+  --shadow-dialog: var(--shadow-dialog);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--fs);
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+    overflow: hidden;
+    user-select: none;
+    cursor: default;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.985);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@utility anim-pop {
+  animation: pop-in var(--dur) var(--ease);
+}
+@utility anim-fade {
+  animation: fade-in var(--dur-slow) var(--ease);
+}
+@utility transition-quick {
+  transition-duration: var(--dur);
+  transition-timing-function: var(--ease);
+  transition-property:
+    color, background-color, border-color, opacity, box-shadow, transform;
+}
