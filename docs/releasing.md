@@ -13,8 +13,12 @@
      à partir des seuls artefacts et génère `latest.json` et `SHA256SUMS.txt`, sans droit d'écriture sur le dépôt ;
    - `github-release`, seul job autorisé à écrire, sans aucun secret de signature, joint les fichiers à la Release
      créée par release-please (son changelog est conservé) ;
-   - `notify-failure` envoie une alerte Pushover si un de ces jobs échoue (secrets `PUSHOVER_TOKEN` et
-     `PUSHOVER_USER` du dépôt ; sans eux, l'étape ne fait rien).
+   - `notify-failure` envoie une alerte Pushover si un de ces jobs échoue ou est annulé (secrets `PUSHOVER_TOKEN`
+     et `PUSHOVER_USER` du dépôt ; sans eux, l'étape ne fait rien).
+
+   Si un build macOS manque (GitHub manque régulièrement de runners macOS arm64 et annule le job), la version est
+   quand même publiée pour Windows et les plateformes compilées. « Re-run failed jobs » sur le run ajoute ensuite
+   la plateforme manquante à la même Release et à `latest.json`. Sans installateur Windows, rien n'est publié.
 4. Les applications installées lisent `https://github.com/Thaskow/sillage/releases/latest/download/latest.json`,
    vérifient la signature avec la clé publique de `src-tauri/tauri.conf.json` et proposent la mise à jour.
 
