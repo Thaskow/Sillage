@@ -8,6 +8,7 @@ import { useWorkspace } from "./features/workspace/store";
 import { useSessions } from "./features/sessions/store";
 import { terminals } from "./features/sessions/terminal-registry";
 import { resumeSessions } from "./features/sessions/actions";
+import { startUpdateChecks } from "./features/updates/store";
 import { useProfiles } from "./features/profiles/store";
 import { listen } from "@tauri-apps/api/event";
 import type { ExitEvent } from "./lib/ipc";
@@ -51,6 +52,8 @@ async function boot() {
   );
   if (inTauri) requestAnimationFrame(() => getCurrentWindow().show());
   resumeSessions();
+  if (inTauri)
+    startUpdateChecks(() => useSettings.getState().settings.autoUpdateCheck);
 }
 
 boot();

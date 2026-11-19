@@ -249,6 +249,11 @@ export const terminals = {
     }
   },
 
+  print(id: string, data: string) {
+    host(id).term.write(data);
+    useSessions.getState().setOpening(id, false);
+  },
+
   onExit(id: string, code: number | null, killed: boolean) {
     const h = hosts.get(id);
     const label = killed ? "arrêté" : `terminé (code ${code ?? "?"})`;

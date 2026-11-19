@@ -3,6 +3,7 @@ import { cx } from "@/lib/cx";
 import { ipc, type AppInfo, type Settings } from "@/lib/ipc";
 import { Button, Switch } from "@/design-system/primitives";
 import { useUi } from "@/app/ui-store";
+import { useUpdates } from "@/features/updates/store";
 import { useSettings } from "./store";
 
 type Option<T extends string> = { value: T; label: string };
@@ -96,17 +97,15 @@ export function SettingsView() {
         <Section title="Confidentialité">
           <Row
             label="Connexions sortantes de Sillage"
-            hint="Désactivées par défaut. Sillage n'a ni télémétrie, ni analytics, ni mise à jour automatique, et n'ouvre aucun port réseau. Seule exception : le relevé des limites du forfait Claude auprès d'api.anthropic.com, désactivable dans Agents. Claude Code, lancé par vous, communique avec Anthropic selon son propre fonctionnement."
+            hint="Sillage n'a ni télémétrie ni analytics et n'ouvre aucun port réseau. Il ne contacte que GitHub (recherche des mises à jour, ci-dessous) et api.anthropic.com (limites du forfait Claude, dans Agents) ; les deux se désactivent. Claude Code et Codex, lancés par vous, communiquent avec leurs services selon leur propre fonctionnement."
           >
-            <Switch
-              checked={s.outboundConnectionsAllowed}
-              onChange={(outboundConnectionsAllowed) =>
-                update({ outboundConnectionsAllowed })
-              }
-              label="Autoriser les connexions sortantes"
-            />
+            <span className="text-[var(--fs-sm)] text-fg-3">
+              GitHub, Anthropic
+            </span>
           </Row>
         </Section>
+
+        <UpdatesSection />
 
         <Section title="Stockage local">
           <Row label="Base de données" hint={storageHint(info)}>
@@ -198,5 +197,51 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+function UpdatesSection() {
+  const s = useSettings((x) => x.settings);
+  const update = useSettings((x) => x.update);
+  const u = useUpdates();
+  const status =
+    u.status === "checking"
+      ? "Recherche…"
+      : u.status === "uptodate"
+        ? "Sillage est à jour."
+        : u.status === "available"
+          ? `Version ${u.version} disponible.`
+          : u.status === "downloading" || u.status === "installing"
+            ? "Installation en cours…"
+            : u.status === "error"
+              ? `Recherche impossible : ${u.error}`
+              : "Pas encore recherché.";
+  return (
+    <Section title="Mises à jour">
+      <Row
+        label="Rechercher automatiquement"
+        hint="Au démarrage puis toutes les 6 heures, Sillage lit la dernière version publiée sur github.com/Thaskow/sillage. Rien n'est installé sans votre accord."
+      >
+        <Switch
+          checked={s.autoUpdateCheck}
+          onChange={(autoUpdateCheck) => update({ autoUpdateCheck })}
+          label="Rechercher automatiquement les mises à jour"
+        />
+      </Row>
+      <Row label="Version installée" hint={status}>
+        {u.status === "available" ? (
+          <Button variant="primary" onClick={() => u.setDialogOpen(true)}>
+            Mettre à jour
+          </Button>
+        ) : (
+          <Button
+            disabled={u.status === "checking"}
+            onClick={() => void u.check()}
+          >
+            Rechercher maintenant
+          </Button>
+        )}
+      </Row>
+    </Section>
   );
 }

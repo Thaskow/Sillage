@@ -17,6 +17,7 @@ export interface Settings {
   defaultClaudeProfile: string | null;
   defaultCodexProfile: string | null;
   claudeLimitsEnabled: boolean;
+  autoUpdateCheck: boolean;
 }
 
 export interface Group {

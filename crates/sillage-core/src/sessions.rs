@@ -54,7 +54,8 @@ impl SessionKind {
             Self::Codex => "Codex",
             Self::Powershell => "PowerShell",
             Self::Pwsh => "PowerShell 7",
-            Self::Cmd => "Invite de commandes",
+            Self::Cmd if cfg!(windows) => "Invite de commandes",
+            Self::Cmd => "Terminal",
             Self::Wsl => "WSL",
             Self::Custom => "Terminal",
         }
@@ -66,7 +67,8 @@ impl SessionKind {
             Self::Codex => &["codex.exe", "codex.cmd", "codex"],
             Self::Powershell => &["powershell.exe"],
             Self::Pwsh => &["pwsh.exe", "pwsh"],
-            Self::Cmd => &["cmd.exe"],
+            Self::Cmd if cfg!(windows) => &["cmd.exe"],
+            Self::Cmd => &["zsh", "bash", "sh"],
             Self::Wsl => &["wsl.exe"],
             Self::Custom => &[],
         }
@@ -75,6 +77,7 @@ impl SessionKind {
     pub fn default_args(self) -> Vec<String> {
         match self {
             Self::Powershell | Self::Pwsh => vec!["-NoLogo".into()],
+            Self::Cmd if !cfg!(windows) => vec!["-l".into()],
             _ => vec![],
         }
     }

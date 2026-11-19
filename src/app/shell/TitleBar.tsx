@@ -5,6 +5,7 @@ import { IconButton, Kbd } from "@/design-system/primitives";
 import { useUi } from "@/app/ui-store";
 import { useSettings } from "@/features/settings/store";
 import { SillageMark } from "./SillageMark";
+import { UpdateButton } from "@/features/updates/UpdateDialog";
 
 const inTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -77,7 +78,8 @@ export function TitleBar() {
 
       <div data-tauri-drag-region className="h-full flex-1" />
 
-      <div className="flex h-full">
+      <div className="flex h-full items-center">
+        <UpdateButton />
         <WindowButton label="Réduire" onClick={() => win().minimize()}>
           <Minus size={14} strokeWidth={1.6} />
         </WindowButton>

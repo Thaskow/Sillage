@@ -35,6 +35,10 @@ fn extra_dirs() -> Vec<PathBuf> {
         env_dir("ProgramFiles", &["PowerShell", "7"]),
         env_dir("SystemRoot", &["System32", "WindowsPowerShell", "v1.0"]),
         env_dir("SystemRoot", &["System32"]),
+        env_dir("HOME", &[".local", "bin"]),
+        env_dir("HOME", &[".npm-global", "bin"]),
+        Some(PathBuf::from("/opt/homebrew/bin")),
+        Some(PathBuf::from("/usr/local/bin")),
     ]
     .into_iter()
     .flatten()

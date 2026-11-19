@@ -24,6 +24,7 @@ export const defaultSettings: Settings = {
   defaultClaudeProfile: null,
   defaultCodexProfile: null,
   claudeLimitsEnabled: true,
+  autoUpdateCheck: true,
 };
 
 export function installMockBackend(
@@ -157,7 +158,7 @@ export function installMockBackend(
             agent: true,
             path: "C:\claude.exe",
           },
-          { kind: "codex", label: "Codex", agent: true, path: null },
+          { kind: "codex", label: "Codex", agent: true, path: "C:\codex.exe" },
           {
             kind: "powershell",
             label: "PowerShell",
@@ -289,23 +290,28 @@ export function installMockBackend(
         return { added: ["github"], skipped: [] };
       case "usage_report": {
         const now = a.now as number;
-        const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-        const week = {
-          input: 200_000,
-          output: 50_000,
-          cacheRead: 950_000,
-          cacheWrite: 0,
-        };
+        const t = (input: number, output: number, cacheRead: number) => ({
+          input,
+          output,
+          cacheRead,
+          cacheWrite: Math.round(cacheRead / 20),
+        });
+        const week = t(200_000, 50_000, 950_000);
+        const opus = t(150_000, 41_000, 800_000);
+        const sonnet = t(50_000, 9_000, 150_000);
         return [
           {
             profileId: null,
             provider: "claude",
-            configDir: "C:\Users\demo\.claude",
+            configDir: "C:\\Users\\demo\\.claude",
             usage: {
-              last5h: zero,
-              today: zero,
+              last5h: t(21_000, 6_400, 180_000),
+              today: t(48_000, 12_000, 310_000),
               week,
-              models: [{ model: "claude-opus-5-5", tokens: week }],
+              models: [
+                { model: "claude-opus-5-5", tokens: opus },
+                { model: "claude-sonnet-5-5", tokens: sonnet },
+              ],
               sessions: 3,
               lastActivity: now - 3_600_000,
               limits: {
@@ -327,14 +333,16 @@ export function installMockBackend(
           {
             profileId: null,
             provider: "codex",
-            configDir: "C:\Users\demo\.codex",
+            configDir: "C:\\Users\\demo\\.codex",
             usage: {
-              last5h: zero,
-              today: zero,
-              week: zero,
-              models: [],
-              sessions: 0,
-              lastActivity: null,
+              last5h: t(9_000, 2_100, 40_000),
+              today: t(9_000, 2_100, 40_000),
+              week: t(64_000, 15_000, 220_000),
+              models: [
+                { model: "gpt-5-codex", tokens: t(64_000, 15_000, 220_000) },
+              ],
+              sessions: 2,
+              lastActivity: now - 1_800_000,
               limits: {
                 primary: {
                   usedPercent: 42,

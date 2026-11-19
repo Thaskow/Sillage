@@ -41,19 +41,45 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "category": "DeveloperTool",
     "shortDescription": "Espace de travail local pour agents IA et terminaux",
     "copyright": "MIT",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "windows": {
-      "webviewInstallMode": { "type": "skip" },
+      "webviewInstallMode": {
+        "type": "skip"
+      },
       "nsis": {
         "installMode": "currentUser",
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/nsis-header.bmp",
         "sidebarImage": "icons/nsis-sidebar.bmp",
-        "languages": ["French", "English"]
+        "languages": [
+          "French",
+          "English"
+        ]
+      }
+    },
+    "macOS": {
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhENjQ2MkI3MTUyODFGMTEKUldRUkh5Z1Z0MkpralplUzBoZ2pjVzBvek1KY2J3a09hM3ZEQW5UMGRpanhESWx3RnFiK25jWEEK",
+      "endpoints": [
+        "https://github.com/Thaskow/sillage/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

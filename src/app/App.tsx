@@ -6,6 +6,7 @@ import { useHotkeys } from "./hotkeys";
 import { Sidebar } from "@/features/workspace/Sidebar";
 import { WorkspaceView } from "@/features/workspace/WorkspaceView";
 import { GroupDialog } from "@/features/workspace/GroupDialog";
+import { UpdateDialog } from "@/features/updates/UpdateDialog";
 import { SettingsView } from "@/features/settings/SettingsView";
 import { HistoryView } from "@/features/placeholders";
 import { ActivityView } from "@/features/activity/ActivityView";
@@ -37,6 +38,7 @@ export function App() {
         </div>
       </div>
       <GroupDialog />
+      <UpdateDialog />
       <CommandPalette />
       <ConfirmHost />
       <Toaster />

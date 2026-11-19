@@ -44,6 +44,7 @@ pub struct Settings {
     pub default_claude_profile: Option<String>,
     pub default_codex_profile: Option<String>,
     pub claude_limits_enabled: bool,
+    pub auto_update_check: bool,
 }
 
 impl Default for Settings {
@@ -61,6 +62,7 @@ impl Default for Settings {
             default_claude_profile: None,
             default_codex_profile: None,
             claude_limits_enabled: true,
+            auto_update_check: true,
         }
     }
 }

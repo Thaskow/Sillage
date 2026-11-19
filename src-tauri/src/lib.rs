@@ -43,6 +43,8 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let dir = app.path().app_local_data_dir()?;
             let (store, open_outcome) = Store::open(&dir.join("sillage.db"))?;

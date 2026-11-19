@@ -5,14 +5,15 @@
 | Engagement | Où le vérifier |
 |---|---|
 | Aucune ressource distante (script, CSS, police, image) | `src-tauri/tauri.conf.json` : CSP `default-src 'self'`, `connect-src ipc:` ; polices installées via `@fontsource-variable/*` et intégrées au bundle. |
-| Aucune télémétrie, analytics, crash reporting, mise à jour automatique | Aucun plugin Tauri `updater`/`http` ; `src-tauri/Cargo.toml` ne contient aucune bibliothèque HTTP. `cargo tree` et `npm ls` le confirment. |
+| Aucune télémétrie, analytics ni crash reporting | Aucun plugin Tauri `http` ; les seules requêtes HTTP partent du code Rust vers deux destinations : GitHub (mises à jour, `tauri-plugin-updater`) et `api.anthropic.com` (limites du forfait Claude, `src-tauri/src/accounts.rs`). Le WebView reste limité par la CSP `connect-src ipc:`. |
+| Mises à jour signées, jamais installées sans accord | `plugins.updater` dans `src-tauri/tauri.conf.json` : `latest.json` des Releases GitHub, signature minisign vérifiée avec la clé publique intégrée ; l'installation attend un clic (`src/features/updates`). Recherche automatique désactivable. Voir [releasing.md](releasing.md). |
 | Aucun port réseau ouvert | L'IPC Tauri passe par le protocole personnalisé de WebView2 ; le serveur Vite n'existe qu'en développement (`127.0.0.1`). |
 | Permissions minimales du frontend | `src-tauri/capabilities/default.json` : uniquement le contrôle de la fenêtre et les commandes de l'app. |
 | Pas de droits administrateur | Installateur NSIS `currentUser`. |
 
-Le réglage « Connexions sortantes de Sillage » est désactivé par défaut. Au lot 1, Sillage n'initie aucune connexion,
-donc ce réglage n'a encore rien à bloquer ; il conditionnera les intégrations distantes (SSH) et le journal des
-connexions sortantes prévus plus tard.
+Connexions sortantes de Sillage : la recherche de mises à jour (GitHub, au démarrage puis toutes les 6 heures,
+désactivable dans Paramètres → Mises à jour) et le relevé des limites du forfait Claude (désactivable dans Agents).
+Aucune autre.
 
 ## Comptes multiples
 
