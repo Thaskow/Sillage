@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Thaskow/Sillage/compare/v0.3.0...v0.3.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* revue sécurité et performances, traduction anglaise, reprise après /resume ([#8](https://github.com/Thaskow/Sillage/issues/8)) ([02fb79e](https://github.com/Thaskow/Sillage/commit/02fb79edb0a59ccd8300a4f9d583657ebac235b4))
+
 ## [0.3.0](https://github.com/Thaskow/Sillage/compare/v0.2.1...v0.3.0) (2026-11-20)
 
 
