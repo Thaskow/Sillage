@@ -58,6 +58,9 @@ const errorRules: [RegExp, string][] = [
   ],
   [/^Anthropic a répondu (\d+)$/, "Anthropic answered $1"],
   [/^(compte|session|groupe) (.+)$/, "$1 $2"],
+  [/^chemin refusé : (.+)$/, "path refused: $1"],
+  [/^modification de (.+)$/, "change to $1"],
+  [/^conversation (.+)$/, "conversation $1"],
   [/^couleur « (.+) »$/, "color “$1”"],
   [/^icône « (.+) »$/, "icon “$1”"],
   [

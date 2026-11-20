@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileDiff as FileDiffIcon, GitBranch, RotateCw, X } from "lucide-react";
+import { t, translateError } from "@/lib/i18n";
 import { cx } from "@/lib/cx";
 import { errorMessage, type SessionDef } from "@/lib/ipc";
 import { IconButton } from "@/design-system/primitives";
@@ -51,7 +52,7 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
       } catch (e) {
         if (n !== diffSeq.current) return;
         setDiff(null);
-        setDiffError(errorMessage(e));
+        setDiffError(translateError(errorMessage(e)));
       }
     },
     [id],
@@ -75,7 +76,7 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
         setDiffError(null);
       }
     } catch (e) {
-      if (n === seq.current) setError(errorMessage(e));
+      if (n === seq.current) setError(translateError(errorMessage(e)));
     } finally {
       if (n === seq.current) setLoading(false);
     }
@@ -134,12 +135,12 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
 
   return (
     <aside
-      aria-label="Modifications"
+      aria-label={t("Modifications")}
       className="flex h-full w-[420px] max-w-[45%] shrink-0 flex-col border-l border-line bg-surface"
     >
       <header className="flex h-[var(--row)] shrink-0 items-center gap-2 border-b border-line pr-1 pl-3">
         <FileDiffIcon size={13} className="text-fg-3" />
-        <h2 className="text-[12.5px] font-medium">Modifications</h2>
+        <h2 className="text-[12.5px] font-medium">{t("Modifications")}</h2>
         {report?.status === "ok" && report.branch && (
           <span className="flex min-w-0 items-center gap-1 truncate text-[var(--fs-sm)] text-fg-3">
             <GitBranch size={11} />
@@ -150,7 +151,7 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
           {session.title}
         </span>
         <IconButton
-          label="Actualiser"
+          label={t("Actualiser")}
           size="sm"
           disabled={loading}
           onClick={() => void refresh()}
@@ -158,7 +159,7 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
           <RotateCw size={13} className={cx(loading && "animate-spin")} />
         </IconButton>
         <IconButton
-          label="Fermer les modifications"
+          label={t("Fermer les modifications")}
           shortcut="Ctrl Maj G"
           size="sm"
           onClick={() => close(false)}
@@ -170,26 +171,35 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
       {error ? (
         <Notice tone="error">{error}</Notice>
       ) : !report ? (
-        <Notice>Lecture des modifications…</Notice>
+        <Notice>{t("Lecture des modifications…")}</Notice>
       ) : report.status === "noGit" ? (
         <Notice>
-          Git est introuvable sur cette machine. Installez Git pour Windows pour
-          voir les modifications.
+          {t(
+            "Git est introuvable sur cette machine. Installez Git pour Windows pour voir les modifications.",
+          )}
         </Notice>
       ) : report.status === "noCwd" ? (
-        <Notice>Le dossier de travail « {report.cwd} » n'existe pas.</Notice>
+        <Notice>
+          {t("Le dossier de travail « {cwd} » n'existe pas.", {
+            cwd: report.cwd,
+          })}
+        </Notice>
       ) : report.status === "notRepo" ? (
         <Notice>
-          Le dossier « {report.cwd} » n'est pas un dépôt git : aucune
-          modification à suivre.
+          {t(
+            "Le dossier « {cwd} » n'est pas un dépôt git : aucune modification à suivre.",
+            { cwd: report.cwd },
+          )}
         </Notice>
       ) : !files.length ? (
-        <Notice>Aucune modification dans {report.root}.</Notice>
+        <Notice>
+          {t("Aucune modification dans {root}.", { root: report.root })}
+        </Notice>
       ) : (
         <>
           <ul
             ref={listRef}
-            aria-label="Fichiers modifiés"
+            aria-label={t("Fichiers modifiés")}
             onKeyDown={onListKey}
             className="max-h-[40%] shrink-0 overflow-auto border-b border-line py-1"
           >
@@ -204,7 +214,7 @@ export function ChangesPanel({ session }: { session: SessionDef }) {
             ))}
             {report.truncated && (
               <li className="px-3 py-1 text-[var(--fs-sm)] text-fg-3">
-                Liste tronquée : trop de fichiers.
+                {t("Liste tronquée : trop de fichiers.")}
               </li>
             )}
           </ul>
@@ -309,13 +319,15 @@ function DiffView({
   const parsed = useMemo(() => (diff ? parseDiff(diff.text) : null), [diff]);
   if (!path)
     return (
-      <Notice>Sélectionnez un fichier pour afficher ses changements.</Notice>
+      <Notice>
+        {t("Sélectionnez un fichier pour afficher ses changements.")}
+      </Notice>
     );
   if (error) return <Notice tone="error">{error}</Notice>;
-  if (!diff || !parsed) return <Notice>Chargement du diff…</Notice>;
+  if (!diff || !parsed) return <Notice>{t("Chargement du diff…")}</Notice>;
   return (
     <section
-      aria-label={`Diff de ${path}`}
+      aria-label={t("Diff de {path}", { path })}
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="flex h-7 shrink-0 items-center gap-2 border-b border-line px-3 text-[var(--fs-sm)]">
@@ -324,13 +336,13 @@ function DiffView({
         <span className="text-err">−{parsed.removed}</span>
       </div>
       {diff.binary ? (
-        <Notice>Fichier binaire : aperçu indisponible.</Notice>
+        <Notice>{t("Fichier binaire : aperçu indisponible.")}</Notice>
       ) : !parsed.lines.length ? (
-        <Notice>Aucune différence de contenu.</Notice>
+        <Notice>{t("Aucune différence de contenu.")}</Notice>
       ) : (
         <div
           tabIndex={0}
-          aria-label="Contenu du diff"
+          aria-label={t("Contenu du diff")}
           className="min-h-0 flex-1 overflow-auto bg-[var(--terminal-bg)] py-1 font-mono text-[11.5px] leading-[1.55]"
         >
           <table className="w-max min-w-full border-collapse">
@@ -355,7 +367,7 @@ function DiffView({
           </table>
           {diff.truncated && (
             <p className="px-3 py-2 font-sans text-[var(--fs-sm)] text-fg-3">
-              Diff tronqué : fichier trop volumineux.
+              {t("Diff tronqué : fichier trop volumineux.")}
             </p>
           )}
         </div>

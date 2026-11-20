@@ -1,3 +1,4 @@
+import { locale, t, translateError } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -53,7 +54,7 @@ export function HistoryView() {
       const res = await historyIpc.search(q);
       if (queryRef.current === q) setEntries(res);
     } catch (e) {
-      toast.error("Recherche impossible", errorMessage(e));
+      toast.error(t("Recherche impossible"), translateError(errorMessage(e)));
       setEntries((prev) => prev ?? []);
     }
   }, []);
@@ -82,8 +83,8 @@ export function HistoryView() {
   }, [load, refresh]);
 
   useEffect(() => {
-    const t = window.setTimeout(() => void load(query), query ? 180 : 0);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => void load(query), query ? 180 : 0);
+    return () => window.clearTimeout(timer);
   }, [query, load]);
 
   const days = useMemo(() => groupByDay(entries ?? []), [entries]);
@@ -96,9 +97,12 @@ export function HistoryView() {
   const copy = async (e: HistoryEntry) => {
     try {
       await writeText(resumeCommand(e, profileFor(e)?.configDir));
-      toast.info("Commande copiée", "Collez-la dans un terminal PowerShell.");
+      toast.info(
+        t("Commande copiée"),
+        t("Collez-la dans un terminal PowerShell."),
+      );
     } catch (err) {
-      toast.error("Copie impossible", errorMessage(err));
+      toast.error(t("Copie impossible"), translateError(errorMessage(err)));
     }
   };
 
@@ -107,7 +111,8 @@ export function HistoryView() {
     const info = kinds.find((k) => k.kind === e.tool);
     if (!groupId || (info && !info.path)) {
       await copy(e);
-      if (!groupId) toast.info("Choisissez d'abord un groupe pour reprendre");
+      if (!groupId)
+        toast.info(t("Choisissez d'abord un groupe pour reprendre"));
       return;
     }
     try {
@@ -117,7 +122,7 @@ export function HistoryView() {
       useSessions.getState().focus(def.id);
       void terminals.start(def.id);
     } catch (err) {
-      toast.error("Reprise impossible", errorMessage(err));
+      toast.error(t("Reprise impossible"), translateError(errorMessage(err)));
     }
   };
 
@@ -125,15 +130,16 @@ export function HistoryView() {
     return (
       <EmptyState
         icon={<History size={18} />}
-        title="Historique vide"
+        title={t("Historique vide")}
         action={
           <Button onClick={() => void refresh()}>
-            <RefreshCw size={14} /> Réindexer
+            <RefreshCw size={14} /> {t("Réindexer")}
           </Button>
         }
       >
-        Aucune conversation Claude Code ou Codex trouvée sur ce poste. Les
-        transcripts sont lus localement, sans copie vers l'extérieur.
+        {t(
+          "Aucune conversation Claude Code ou Codex trouvée sur ce poste. Les transcripts sont lus localement, sans copie vers l'extérieur.",
+        )}
       </EmptyState>
     );
   }
@@ -143,17 +149,17 @@ export function HistoryView() {
       <div className="mx-auto max-w-[920px] px-8 py-8">
         <div className="flex items-center gap-3">
           <h1 className="flex-1 text-[18px] font-semibold tracking-[-0.015em]">
-            Historique
+            {t("Historique")}
           </h1>
           <span
             role="status"
             className="text-[var(--fs-sm)] text-fg-3"
             aria-live="polite"
           >
-            {indexing ? "Indexation…" : ""}
+            {indexing ? t("Indexation…") : ""}
           </span>
           <IconButton
-            label="Réindexer les conversations"
+            label={t("Réindexer les conversations")}
             onClick={() => void refresh()}
             disabled={indexing}
           >
@@ -171,8 +177,8 @@ export function HistoryView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && query && setQuery("")}
-            placeholder="Rechercher dans les conversations"
-            aria-label="Rechercher dans les conversations"
+            placeholder={t("Rechercher dans les conversations")}
+            aria-label={t("Rechercher dans les conversations")}
             className="pl-8"
           />
         </div>
@@ -180,8 +186,8 @@ export function HistoryView() {
         {entries && !entries.length && (
           <p className="mt-8 text-center text-fg-3">
             {query
-              ? "Aucune conversation ne correspond."
-              : "Indexation en cours…"}
+              ? t("Aucune conversation ne correspond.")
+              : t("Indexation en cours…")}
           </p>
         )}
 
@@ -209,7 +215,7 @@ export function HistoryView() {
                         </span>
                         · {providerLabel[e.tool]}
                         {profile ? ` · ${profile.name}` : ""} ·{" "}
-                        {new Date(e.updatedAt).toLocaleTimeString("fr-FR", {
+                        {new Date(e.updatedAt).toLocaleTimeString(locale(), {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -218,17 +224,19 @@ export function HistoryView() {
                     </div>
                     <div className="flex shrink-0 items-center gap-1 opacity-60 group-focus-within/h:opacity-100 group-hover/h:opacity-100">
                       <IconButton
-                        label="Copier la commande de reprise"
+                        label={t("Copier la commande de reprise")}
                         onClick={() => void copy(e)}
                       >
                         <Copy size={14} />
                       </IconButton>
                       <Button
                         variant="ghost"
-                        aria-label={`Reprendre « ${e.title} »`}
+                        aria-label={t("Reprendre « {title} »", {
+                          title: e.title,
+                        })}
                         onClick={() => void resume(e)}
                       >
-                        <Play size={14} /> Reprendre
+                        <Play size={14} /> {t("Reprendre")}
                       </Button>
                     </div>
                   </li>

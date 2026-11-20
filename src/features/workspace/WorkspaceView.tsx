@@ -234,7 +234,7 @@ export function WorkspaceView() {
           </div>
         )}
         <IconButton
-          label="Modifications"
+          label={t("Modifications")}
           shortcut="Ctrl Maj G"
           active={changesOpen}
           disabled={!sessions.length}

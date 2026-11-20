@@ -133,7 +133,7 @@ export const defaultBindings: Binding[] = [
 
 const reserved = new Set(defaultBindings.map((b) => b.keys));
 // shell and agent editing keys (readline, Claude Code): left to the terminal
-const terminalKeys = new Set(["Ctrl+K", "Ctrl+B", "Ctrl+T", "Ctrl+W"]);
+const terminalKeys = new Set(["Ctrl+K", "Ctrl+B", "Ctrl+W"]);
 
 export function isReservedCombo(e: KeyboardEvent): boolean {
   const combo = comboOf(e);

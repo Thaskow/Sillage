@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { ChangeKind } from "./ipc";
 
 export type LineKind = "add" | "del" | "ctx" | "hunk" | "meta";
@@ -61,14 +62,54 @@ export function parseDiff(text: string): ParsedDiff {
 }
 
 export const kindInfo: Record<ChangeKind, { letter: string; label: string }> = {
-  modified: { letter: "M", label: "Modifié" },
-  added: { letter: "A", label: "Ajouté" },
-  deleted: { letter: "D", label: "Supprimé" },
-  renamed: { letter: "R", label: "Renommé" },
-  copied: { letter: "C", label: "Copié" },
-  typeChanged: { letter: "T", label: "Type modifié" },
-  untracked: { letter: "U", label: "Non suivi" },
-  conflicted: { letter: "!", label: "En conflit" },
+  modified: {
+    letter: "M",
+    get label() {
+      return t("Modifié");
+    },
+  },
+  added: {
+    letter: "A",
+    get label() {
+      return t("Ajouté");
+    },
+  },
+  deleted: {
+    letter: "D",
+    get label() {
+      return t("Supprimé");
+    },
+  },
+  renamed: {
+    letter: "R",
+    get label() {
+      return t("Renommé");
+    },
+  },
+  copied: {
+    letter: "C",
+    get label() {
+      return t("Copié");
+    },
+  },
+  typeChanged: {
+    letter: "T",
+    get label() {
+      return t("Type modifié");
+    },
+  },
+  untracked: {
+    letter: "U",
+    get label() {
+      return t("Non suivi");
+    },
+  },
+  conflicted: {
+    letter: "!",
+    get label() {
+      return t("En conflit");
+    },
+  },
 };
 
 export function splitPath(path: string): { dir: string; name: string } {

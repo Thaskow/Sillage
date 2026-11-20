@@ -1,4 +1,4 @@
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
@@ -584,11 +584,11 @@ function GroupRow({
           )}
           {!renaming && unseen > 0 && (
             <Tooltip
-              content={
-                unseen > 1
-                  ? `${unseen} agents vous attendent`
-                  : "Un agent vous attend"
-              }
+              content={plural(
+                unseen,
+                "Un agent vous attend",
+                "{n} agents vous attendent",
+              )}
               side="right"
             >
               <span className="flex">

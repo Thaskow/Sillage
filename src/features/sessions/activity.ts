@@ -3,6 +3,7 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { t } from "@/lib/i18n";
 import { useUi } from "@/app/ui-store";
 import { useSettings } from "@/features/settings/store";
 import { useWorkspace } from "@/features/workspace/store";
@@ -14,9 +15,9 @@ export interface ActivityEvent {
   at: number;
 }
 
-const message: Record<Exclude<Activity, "working">, string> = {
-  waiting: "Attend votre validation",
-  done: "A terminé, à vous de reprendre",
+const message: Record<Exclude<Activity, "working">, () => string> = {
+  waiting: () => t("Attend votre validation"),
+  done: () => t("A terminé, à vous de reprendre"),
 };
 
 let allowed: Promise<boolean> | null = null;
@@ -45,7 +46,7 @@ export function onAgentActivity(e: ActivityEvent, notify = sendNotification) {
     .getState()
     .groups.find((g) => g.id === def.groupId);
   const title = group ? `${def.title} · ${group.name}` : def.title;
-  const body = message[e.activity as keyof typeof message];
+  const body = message[e.activity as keyof typeof message]();
   void canNotify().then((ok) => ok && notify({ title, body }));
 }
 

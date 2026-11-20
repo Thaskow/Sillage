@@ -1,3 +1,4 @@
+import { locale, t } from "@/lib/i18n";
 import type { HistoryEntry } from "./api";
 
 export interface Segment {
@@ -24,23 +25,23 @@ export function splitSnippet(snippet: string): Segment[] {
 }
 
 export function projectName(cwd: string | null): string {
-  if (!cwd) return "Dossier inconnu";
+  if (!cwd) return t("Dossier inconnu");
   const parts = cwd.split(/[\\/]+/).filter(Boolean);
   return parts[parts.length - 1] ?? cwd;
 }
 
-function startOfDay(t: number) {
-  const d = new Date(t);
+function startOfDay(ts: number) {
+  const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
-export function dayLabel(t: number, now = Date.now()): string {
-  const diff = Math.round((startOfDay(now) - startOfDay(t)) / 86_400_000);
-  if (diff === 0) return "Aujourd'hui";
-  if (diff === 1) return "Hier";
-  const d = new Date(t);
-  return d.toLocaleDateString("fr-FR", {
+export function dayLabel(ts: number, now = Date.now()): string {
+  const diff = Math.round((startOfDay(now) - startOfDay(ts)) / 86_400_000);
+  if (diff === 0) return t("Aujourd'hui");
+  if (diff === 1) return t("Hier");
+  const d = new Date(ts);
+  return d.toLocaleDateString(locale(), {
     weekday: "long",
     day: "numeric",
     month: "long",
