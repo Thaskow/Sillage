@@ -12,10 +12,10 @@ sous les yeux. Local, rapide, sans cloud.
 [![Téléchargements](https://img.shields.io/github/downloads/Thaskow/sillage/total?color=3d6fb0)](https://github.com/Thaskow/sillage/releases)
 [![CI](https://github.com/Thaskow/sillage/actions/workflows/ci.yml/badge.svg)](https://github.com/Thaskow/sillage/actions/workflows/ci.yml)
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-6a5bb5)](LICENSE)
-![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)
-![macOS expérimental](https://img.shields.io/badge/macOS-exp%C3%A9rimental-5f6670)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](https://github.com/Thaskow/sillage/releases/latest/download/Sillage_x64-setup.exe)
+[![macOS expérimental](https://img.shields.io/badge/macOS-exp%C3%A9rimental-5f6670)](#télécharger)
 
-[**Télécharger pour Windows**](https://github.com/Thaskow/sillage/releases/latest) ·
+[**Télécharger pour Windows**](https://github.com/Thaskow/sillage/releases/latest/download/Sillage_x64-setup.exe) ·
 [Guide d'utilisation](docs/guide.md) ·
 [Confidentialité](docs/security.md) ·
 [Feuille de route](docs/roadmap.md)
@@ -92,9 +92,9 @@ signée et sa signature vérifiée avant installation.
 
 | Système | Fichier | État |
 |---|---|---|
-| Windows 10 / 11 (x64) | [`Sillage_<version>_x64-setup.exe`](https://github.com/Thaskow/sillage/releases/latest) | Stable |
-| macOS Apple Silicon | [`Sillage_<version>_aarch64.dmg`](https://github.com/Thaskow/sillage/releases/latest) | Expérimental |
-| macOS Intel | [`Sillage_<version>_x64.dmg`](https://github.com/Thaskow/sillage/releases/latest) | Expérimental |
+| Windows 10 / 11 (x64) | [`Sillage_x64-setup.exe`](https://github.com/Thaskow/sillage/releases/latest/download/Sillage_x64-setup.exe) | Stable |
+| macOS Apple Silicon | [`Sillage_aarch64.dmg`](https://github.com/Thaskow/sillage/releases/latest/download/Sillage_aarch64.dmg) | Expérimental |
+| macOS Intel | [`Sillage_x64.dmg`](https://github.com/Thaskow/sillage/releases/latest/download/Sillage_x64.dmg) | Expérimental |
 
 Les empreintes SHA-256 de chaque fichier sont publiées avec la version (`SHA256SUMS.txt`).
 

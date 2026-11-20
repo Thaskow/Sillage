@@ -138,6 +138,14 @@ jobs:
             if [ -f "$f" ]; then npx --yes @tauri-apps/cli@2.12.6 signer sign "$f"; fi
           done
 
+      - name: Version-less copies
+        run: |
+          cd dist
+          cp "Sillage_${VERSION}_x64-setup.exe" Sillage_x64-setup.exe
+          for a in aarch64 x64; do
+            if [ -f "Sillage_${VERSION}_${a}.dmg" ]; then cp "Sillage_${VERSION}_${a}.dmg" "Sillage_${a}.dmg"; fi
+          done
+
       - name: Manifest and checksums
         run: |
           node scripts/latest-json.mjs dist "$VERSION" notes.md > dist/latest.json
