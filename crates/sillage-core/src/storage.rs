@@ -143,22 +143,21 @@ impl Store {
     }
 
     fn migrate(&mut self) -> Result<()> {
-        let current: usize = self
-            .conn
-            .query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        let current = self.schema_version()?;
         for (i, sql) in MIGRATIONS.iter().enumerate().skip(current) {
             let tx = self.conn.transaction()?;
             tx.execute_batch(sql)?;
-            tx.pragma_update(None, "user_version", i + 1)?;
+            tx.pragma_update(None, "user_version", (i + 1) as u32)?;
             tx.commit()?;
         }
         Ok(())
     }
 
     pub fn schema_version(&self) -> Result<usize> {
-        Ok(self
+        let v: u32 = self
             .conn
-            .query_row("PRAGMA user_version", [], |r| r.get(0))?)
+            .query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        Ok(v as usize)
     }
 
     pub fn latest_schema_version() -> usize {
