@@ -3866,7 +3866,7 @@ dependencies = [
 
 [[package]]
 name = "sillage"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3886,7 +3886,7 @@ dependencies = [
 
 [[package]]
 name = "sillage-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "junction",
  "rusqlite",
@@ -3900,7 +3900,7 @@ dependencies = [
 
 [[package]]
 name = "sillage-pty"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "portable-pty",
  "serde",

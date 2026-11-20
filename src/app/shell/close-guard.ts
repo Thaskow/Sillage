@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { askChoice, type Choice } from "@/design-system/confirm";
@@ -16,13 +17,18 @@ export function runningSessionCount() {
 
 export function askCloseWithRunning(count: number): Promise<Choice> {
   return askChoice({
-    title: "Réduire Sillage plutôt que le fermer ?",
+    title: t("Réduire Sillage plutôt que le fermer ?"),
     description:
       count > 1
-        ? `${count} sessions sont en cours : fermer Sillage arrêterait leurs processus et annulerait les prompts en cours. Réduire la fenêtre les laisse continuer.`
-        : "Une session est en cours : fermer Sillage arrêterait son processus et annulerait le prompt en cours. Réduire la fenêtre la laisse continuer.",
-    alternativeLabel: "Réduire",
-    confirmLabel: "Fermer quand même",
+        ? t(
+            "{n} sessions sont en cours : fermer Sillage arrêterait leurs processus et annulerait les prompts en cours. Réduire la fenêtre les laisse continuer.",
+            { n: count },
+          )
+        : t(
+            "Une session est en cours : fermer Sillage arrêterait son processus et annulerait le prompt en cours. Réduire la fenêtre la laisse continuer.",
+          ),
+    alternativeLabel: t("Réduire"),
+    confirmLabel: t("Fermer quand même"),
     danger: true,
   });
 }

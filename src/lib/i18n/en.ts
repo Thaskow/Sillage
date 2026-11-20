@@ -403,4 +403,11 @@ export const en: Record<string, string> = {
   "Fermer le panneau actif": "Close the active panel",
   "— processus arrêté —": "— process stopped —",
   "— processus terminé (code {code}) —": "— process exited (code {code}) —",
+  "Réduire Sillage plutôt que le fermer ?":
+    "Minimize Sillage instead of closing it?",
+  "{n} sessions sont en cours : fermer Sillage arrêterait leurs processus et annulerait les prompts en cours. Réduire la fenêtre les laisse continuer.":
+    "{n} sessions are running: closing Sillage would stop their processes and cancel the prompts in progress. Minimizing the window lets them keep going.",
+  "Une session est en cours : fermer Sillage arrêterait son processus et annulerait le prompt en cours. Réduire la fenêtre la laisse continuer.":
+    "A session is running: closing Sillage would stop its process and cancel the prompt in progress. Minimizing the window lets it keep going.",
+  "Fermer quand même": "Close anyway",
 };
