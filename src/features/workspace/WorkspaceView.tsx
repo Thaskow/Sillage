@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import {
   ChevronDown,
   Columns2,
+  FileDiff,
   FolderInput,
   GalleryHorizontalEnd,
   LayoutGrid,
@@ -39,6 +40,8 @@ import { useSettings } from "@/features/settings/store";
 import { kindIcon } from "@/features/sessions/visuals";
 import { ClaudeLogo } from "@/design-system/brand-icons";
 import { terminals } from "@/features/sessions/terminal-registry";
+import { ChangesPanel } from "@/features/changes/ChangesPanel";
+import { useChangesUi } from "@/features/changes/store";
 import { providerOf, useProfiles } from "@/features/profiles/store";
 import {
   groupName,
@@ -125,6 +128,9 @@ export function WorkspaceView() {
   const updateGroup = useWorkspace((s) => s.updateGroup);
   const defs = useSessions((s) => s.defs);
   const runtime = useSessions((s) => s.runtime);
+  const focusedId = useSessions((s) => s.focusedId);
+  const changesOpen = useChangesUi((s) => s.open);
+  const toggleChanges = useChangesUi((s) => s.toggle);
   const agentMenu = useKindMenu(true);
   const terminalMenu = useKindMenu(false);
   const sessions = useMemo(
@@ -227,6 +233,15 @@ export function WorkspaceView() {
             ))}
           </div>
         )}
+        <IconButton
+          label="Modifications"
+          shortcut="Ctrl Maj G"
+          active={changesOpen}
+          disabled={!sessions.length}
+          onClick={toggleChanges}
+        >
+          <FileDiff size={15} />
+        </IconButton>
         <DropdownMenu align="end" items={terminalMenu}>
           <Button variant="ghost">
             <SquareTerminal size={14} /> {t("Terminal")}{" "}
@@ -285,9 +300,23 @@ export function WorkspaceView() {
           </DropdownMenu>
         )}
       </div>
-      <div className="min-h-0 flex-1 bg-bg">
+      <div className="flex min-h-0 flex-1 bg-bg">
         {sessions.length ? (
-          <PanelArea group={group} sessions={sessions} />
+          <>
+            <div className="min-w-0 flex-1">
+              <PanelArea group={group} sessions={sessions} />
+            </div>
+            {changesOpen && (
+              <ChangesPanel
+                key={
+                  (sessions.find((s) => s.id === focusedId) ?? sessions[0]!).id
+                }
+                session={
+                  sessions.find((s) => s.id === focusedId) ?? sessions[0]!
+                }
+              />
+            )}
+          </>
         ) : (
           <EmptyState
             icon={<SquareTerminal size={18} />}

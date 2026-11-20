@@ -124,6 +124,23 @@ export function SettingsView() {
           </Row>
         </Section>
 
+        <Section title={t("Notifications")}>
+          <Row
+            label={t("Notifications Windows")}
+            hint={t(
+              "Quand un agent Claude Code attend votre validation ou a terminé et que Sillage n'est pas au premier plan. Affichées uniquement sur cette machine, sans contenu de code ni secret.",
+            )}
+          >
+            <Switch
+              checked={s.notificationsEnabled}
+              onChange={(notificationsEnabled) =>
+                update({ notificationsEnabled })
+              }
+              label={t("Notifications Windows")}
+            />
+          </Row>
+        </Section>
+
         <Section title={t("Confidentialité")}>
           <Row
             label={t("Connexions sortantes de Sillage")}

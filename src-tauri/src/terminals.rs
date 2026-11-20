@@ -3,12 +3,14 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
 use serde::Serialize;
+use sillage_core::hooks;
 use sillage_core::profiles::Provider;
 use sillage_core::resume::{self, Saved};
 use sillage_core::sessions::{find_program, launch_program, NewSession, SessionDef, SessionKind};
 use sillage_core::sharing;
 use sillage_core::{Error, Result};
-use sillage_pty::{LaunchSpec, PtyManager, RunningInfo};
+use sillage_host::Backend;
+use sillage_pty::{ExitFn, LaunchSpec, OutputFn, RunningInfo};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -140,6 +142,31 @@ struct ExitEvent {
     killed: bool,
 }
 
+fn sinks(app: &AppHandle, id: &str, output: &Channel<InvokeResponseBody>) -> (OutputFn, ExitFn) {
+    let output = output.clone();
+    let app = app.clone();
+    let exit_id = id.to_string();
+    (
+        Box::new(move |bytes| {
+            let _ = output.send(InvokeResponseBody::Raw(bytes));
+        }),
+        Box::new(move |e| {
+            let st = app.state::<AppState>();
+            if !st.exiting.load(Ordering::SeqCst) {
+                let _ = with_store(&st, |s| s.set_resume(&exit_id, false));
+            }
+            let _ = app.emit(
+                "session-exit",
+                ExitEvent {
+                    id: exit_id,
+                    code: e.code,
+                    killed: e.killed,
+                },
+            );
+        }),
+    )
+}
+
 #[tauri::command]
 pub async fn start_session(
     app: AppHandle,
@@ -160,6 +187,15 @@ pub async fn start_session(
                 def.agent_session_id = Some(current);
             }
         }
+    }
+    let (on_output, on_exit) = sinks(&app, &id, &output);
+    if let Some(info) = state
+        .pty
+        .attach(&id, cols, rows, on_output, on_exit)
+        .map_err(pty_err)?
+    {
+        let _ = with_store(&state, |s| s.touch_session(&id));
+        return Ok(info);
     }
     let cwd = def.cwd.clone().map(PathBuf::from).or_else(|| {
         with_store(&state, |s| s.settings())
@@ -190,9 +226,22 @@ pub async fn start_session(
     if let Some(a) = &agent {
         args.extend(a.args.iter().cloned());
     }
+    let mut env = crate::accounts::launch_env(&state, def.profile_id.as_deref())?;
     if def.kind == SessionKind::Claude {
+        let mut settings: serde_json::Value =
+            serde_json::from_str(&resume::claude_hook_settings(&record)).unwrap_or_default();
+        if let Some(activity) = &state.activity_hooks {
+            let dir = crate::hooks::dir(&state.data_dir);
+            hooks::clear_state(&dir, &id);
+            hooks::merge(&mut settings, activity);
+            env.push((hooks::ENV_SESSION.into(), id.clone()));
+            env.push((hooks::ENV_DIR.into(), dir.display().to_string()));
+            if let Some(path) = crate::hooks::path_with_exe_dir() {
+                env.push(("PATH".into(), path));
+            }
+        }
         std::fs::create_dir_all(state.data_dir.join("agents"))?;
-        std::fs::write(&hook_settings, resume::claude_hook_settings(&record))?;
+        std::fs::write(&hook_settings, settings.to_string())?;
         args.push("--settings".into());
         args.push(hook_settings.display().to_string());
     }
@@ -201,35 +250,15 @@ pub async fn start_session(
         program,
         args,
         cwd,
-        env: crate::accounts::launch_env(&state, def.profile_id.as_deref())?,
+        env,
         cols,
         rows,
     };
 
-    let exit_id = id.clone();
+    let (on_output, on_exit) = sinks(&app, &id, &output);
     let info = state
         .pty
-        .spawn(
-            &id,
-            spec,
-            Box::new(move |bytes| {
-                let _ = output.send(InvokeResponseBody::Raw(bytes));
-            }),
-            Box::new(move |e| {
-                let st = app.state::<AppState>();
-                if !st.exiting.load(Ordering::SeqCst) {
-                    let _ = with_store(&st, |s| s.set_resume(&exit_id, false));
-                }
-                let _ = app.emit(
-                    "session-exit",
-                    ExitEvent {
-                        id: exit_id,
-                        code: e.code,
-                        killed: e.killed,
-                    },
-                );
-            }),
-        )
+        .spawn(&id, spec, on_output, on_exit)
         .map_err(pty_err)?;
     let _ = with_store(&state, |s| {
         s.touch_session(&id)?;
@@ -289,7 +318,7 @@ pub fn reset_agent_session(state: State<AppState>, id: String) -> Result<()> {
 
 #[tauri::command]
 pub fn write_session(state: State<AppState>, id: String, data: String) -> Result<()> {
-    state.pty.write(&id, data.as_bytes()).map_err(pty_err)
+    state.pty.write(&id, &data).map_err(pty_err)
 }
 
 #[tauri::command]
@@ -307,6 +336,13 @@ pub fn running_sessions(state: State<AppState>) -> Vec<RunningInfo> {
     state.pty.running()
 }
 
-pub fn shutdown(pty: &PtyManager) {
-    pty.kill_all();
+pub fn shutdown(pty: &Backend) {
+    pty.shutdown();
+}
+
+/// Sessions that ended in the host while the app was closed must not be relaunched.
+pub fn reconcile(store: &sillage_core::Store, pty: &Backend) {
+    for e in pty.ended() {
+        let _ = store.set_resume(&e.id, false);
+    }
 }

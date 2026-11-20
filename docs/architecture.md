@@ -58,14 +58,40 @@
 - **Compilation croisée depuis Linux** (`cargo-xwin`) : le poste de développement n'a pas besoin des MSVC Build Tools.
   Limite : seuls les tests indépendants de Windows tournent en CI Linux ; ConPTY, Named Pipes et DPAPI sont validés
   en lançant l'application sur Windows.
+- **États des agents par les hooks Claude Code** : chaque session Claude reçoit `--settings <données>/claude-hooks.json`
+  (la configuration de l'utilisateur n'est pas modifiée). Les hooks `UserPromptSubmit`/`PostToolUse` (travaille),
+  `Notification` (attend une validation) et `Stop` (a terminé) appellent `Sillage.exe --hook <état>`, qui écrit
+  `<données>/hooks/<session>.state`. L'app scrute ce dossier (300 ms) et émet `agent-activity`. La commande est le nom
+  nu de l'exécutable, résolu par le `PATH` de la session : Claude Code peut lancer ses hooks dans PowerShell, bash ou
+  cmd.
 - **Pas d'état global monolithique** : stores par fonctionnalité, sélecteurs fins ; les terminaux (lot 2) écriront
   directement dans xterm.js sans passer par React.
 
-## Sessions persistantes (lot 2, conception)
+## Sessions persistantes (lot 2b)
 
-Le démon `sillage-host` est un second binaire lancé à la demande par l'app (pas de service Windows, pas de droits
-admin). Il écoute sur `\\.\pipe\sillage-<SID>` avec un descripteur de sécurité limité à l'utilisateur courant et
-`PIPE_REJECT_REMOTE_CLIENTS`. Il possède les ConPTY (`portable-pty`) ; l'app s'y attache, rejoue le tampon d'écran
-récent puis reçoit le flux en direct. Fermer la fenêtre détache ; « Terminer » envoie un arrêt propre ; « Forcer »
-ferme le Job Object. Après un redémarrage de Windows, les sessions sont marquées « terminées » avec leur historique
-consultable, jamais présentées comme actives.
+Crate `crates/sillage-host` : protocole (`proto`), démon (`server`), client (`client`), sécurité Windows
+(`security`) et `Backend`, qui remplace `PtyManager` dans `AppState`.
+
+- **Même exécutable, mode `--host`** (intercepté dans `main.rs` comme `--hook`) : rien de plus à empaqueter. L'app le
+  copie dans `<données>/host/sillage-host-<version>.exe` (avec les DLL voisines) et le lance détaché
+  (`DETACHED_PROCESS`, hors Job Object si possible) : la mise à jour de `Sillage.exe` ne bute jamais sur un fichier
+  verrouillé et l'ancien démon garde ses sessions. Pas de service Windows, pas de droits admin.
+- **Canal** : `\\.\pipe\sillage-<SID>` (`sillage-dev-<SID>` en debug), descripteur `O:<SID>G:<SID>D:P(A;;GA;;;<SID>)`
+  (seul l'utilisateur courant, DACL protégée), `PIPE_REJECT_REMOTE_CLIENTS`, première instance exclusive (un second
+  démon ne peut pas prendre le nom). Le client vérifie que le propriétaire du canal est son propre SID avant d'envoyer
+  quoi que ce soit (contre un autre compte qui aurait créé le nom en premier). Aucune écoute réseau.
+- **Protocole** : trames `u32` longueur + type (0 = JSON, 1 = sortie binaire `id` + octets), 1 Mio max côté client.
+  JSON strict (`deny_unknown_fields`), poignée de main versionnée (`PROTOCOL`), identifiants `[A-Za-z0-9_-]{1,64}`,
+  tailles 2–1000, chaînes sans NUL et bornées. Trame ou JSON invalide : connexion fermée ; requête invalide : erreur.
+- **Sessions** : le démon garde les 512 Kio de sortie récents par session. `start_session` tente d'abord `attach` :
+  si la session vit dans le démon, le tampon est rejoué puis le flux continue sans relancer le processus (les
+  `--settings`, `SILLAGE_SESSION_ID`, `SILLAGE_HOOK_DIR` et `PATH` des hooks ne sont posés qu'au lancement, par
+  l'app). L'app envoie son environnement complet à chaque lancement, le démon pouvant être plus ancien qu'elle. Les
+  sessions terminées pendant que l'app était fermée sont listées par le démon et ne sont pas relancées (`reconcile`).
+- **Cycle de vie** : fermer la fenêtre détache (seules les sessions en processus sont tuées). Le démon s'arrête
+  après 30 s sans session ni client. Après un redémarrage de Windows il n'existe plus : la reprise du lot 4b
+  s'applique.
+- **Repli** : démon injoignable ou de version incompatible (ou variable `SILLAGE_NO_HOST`) : PTY en processus comme
+  au lot 2a, nouvel essai de connexion au plus toutes les 15 s.
+- Reste à faire : « Terminer » propre et « Forcer » par Job Object, action « Détacher » dans l'interface, conserver
+  l'état des hooks au redémarrage de l'app (`hooks::prepare` vide encore le dossier).

@@ -17,9 +17,20 @@ sécurité, suivez plutôt [SECURITY.md](SECURITY.md).
    ```sh
    npm run typecheck && npx prettier --check src && npm test
    cargo fmt --all --check
-   cargo clippy -p sillage-core -p sillage-pty --all-targets -- -D warnings
-   cargo test -p sillage-core -p sillage-pty
+   cargo clippy -p sillage-core -p sillage-pty -p sillage-host --all-targets -- -D warnings
+   cargo test -p sillage-core -p sillage-pty -p sillage-host
    ```
+
+   Sans droits administrateur (pas de Build Tools MSVC), utilisez la toolchain `gnullvm` et
+   [llvm-mingw](https://github.com/mstorsjo/llvm-mingw/releases) (`llvm-mingw-*-ucrt-x86_64.zip`, décompressé
+   dans votre profil) :
+
+   ```sh
+   rustup toolchain install stable-x86_64-pc-windows-gnullvm --profile minimal -c rustfmt,clippy
+   export PATH="<llvm-mingw>/bin:$PATH" RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnullvm
+   ```
+
+   Les binaires publiés restent compilés en MSVC par la CI.
 
 4. Messages de commit au format [Conventional Commits](https://www.conventionalcommits.org/fr/) : ils alimentent le
    journal des versions.

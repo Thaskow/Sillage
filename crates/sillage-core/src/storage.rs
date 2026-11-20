@@ -65,6 +65,26 @@ ALTER TABLE sessions ADD COLUMN agent_session_id TEXT;
 ALTER TABLE sessions ADD COLUMN agent_started_at INTEGER;
 ALTER TABLE sessions ADD COLUMN resume INTEGER NOT NULL DEFAULT 0;
 "#,
+    r#"
+CREATE TABLE history_conversations (
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    size INTEGER NOT NULL,
+    mtime INTEGER NOT NULL,
+    tool TEXT NOT NULL,
+    source_dir TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    cwd TEXT,
+    title TEXT NOT NULL,
+    started_at INTEGER,
+    updated_at INTEGER NOT NULL,
+    messages INTEGER NOT NULL
+);
+CREATE INDEX history_updated ON history_conversations(updated_at DESC);
+CREATE VIRTUAL TABLE history_fts USING fts5(
+    title, body, tokenize = 'unicode61 remove_diacritics 2'
+);
+"#,
 ];
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

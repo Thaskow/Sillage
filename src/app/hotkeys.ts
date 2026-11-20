@@ -3,6 +3,7 @@ import { useUi } from "./ui-store";
 import { useSettings } from "@/features/settings/store";
 import { useWorkspace } from "@/features/workspace/store";
 import { useSessions } from "@/features/sessions/store";
+import { useChangesUi } from "@/features/changes/store";
 import {
   closeSession,
   cycleFocus,
@@ -16,12 +17,23 @@ export interface Binding {
   run: () => void;
 }
 
+// AZERTY gives "&" for Ctrl+1; IME/dead keys give "Process" or "Dead".
+function keyOf(e: KeyboardEvent): string {
+  const digit = /^Digit(\d)$/.exec(e.code ?? "");
+  if (digit && (e.ctrlKey || e.altKey)) return digit[1]!;
+  if (/^[a-z]$/i.test(e.key)) return e.key.toUpperCase();
+  const letter = /^Key([A-Z])$/.exec(e.code ?? "");
+  if (letter && (e.key.length !== 1 || e.key.charCodeAt(0) < 32))
+    return letter[1]!;
+  return e.key.length === 1 ? e.key.toUpperCase() : e.key;
+}
+
 export function comboOf(e: KeyboardEvent): string {
   const parts: string[] = [];
   if (e.ctrlKey) parts.push("Ctrl");
   if (e.shiftKey) parts.push("Shift");
   if (e.altKey) parts.push("Alt");
-  const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const k = keyOf(e);
   if (!["Control", "Shift", "Alt", "Meta"].includes(k)) parts.push(k);
   return parts.join("+");
 }
@@ -99,6 +111,12 @@ export const defaultBindings: Binding[] = [
     label: "Session précédente",
     keys: "Ctrl+Shift+Tab",
     run: () => cycleFocus(-1),
+  },
+  {
+    id: "changes",
+    label: "Afficher ou masquer les modifications",
+    keys: "Ctrl+Shift+G",
+    run: () => useChangesUi.getState().toggle(),
   },
   ...Array.from({ length: 9 }, (_, i) => ({
     id: `favorite-${i + 1}`,

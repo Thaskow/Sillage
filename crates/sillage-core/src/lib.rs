@@ -1,5 +1,8 @@
 pub mod claude_limits;
 pub mod error;
+pub mod git;
+pub mod history;
+pub mod hooks;
 pub mod profiles;
 pub mod resume;
 pub mod sessions;

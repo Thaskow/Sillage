@@ -1,5 +1,9 @@
 mod accounts;
+mod changes;
 mod commands;
+mod history;
+pub mod hooks;
+pub mod host;
 mod terminals;
 
 use std::path::PathBuf;
@@ -7,14 +11,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use sillage_core::{OpenOutcome, Store};
-use sillage_pty::PtyManager;
+use sillage_host::Backend;
 use tauri::{Manager, RunEvent};
 
 pub struct AppState {
     pub store: Mutex<Store>,
     pub open_outcome: OpenOutcome,
-    pub pty: PtyManager,
+    pub pty: Backend,
     pub data_dir: PathBuf,
+    pub activity_hooks: Option<serde_json::Value>,
     pub exiting: Arc<AtomicBool>,
 }
 
@@ -52,17 +57,24 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app.path().app_local_data_dir()?;
             let (store, open_outcome) = Store::open(&dir.join("sillage.db"))?;
             store.ensure_scratch_group()?;
+            let activity_hooks = hooks::prepare(&dir);
+            hooks::watch(app.handle().clone(), hooks::dir(&dir));
+            let pty = host::backend(&dir);
+            terminals::reconcile(&store, &pty);
             app.manage(AppState {
                 store: Mutex::new(store),
                 open_outcome,
-                pty: PtyManager::new(),
+                pty,
                 data_dir: dir,
+                activity_hooks,
                 exiting: Arc::new(AtomicBool::new(false)),
             });
+            history::spawn_index(app.handle().clone());
             if let Some(w) = app.get_webview_window("main") {
                 #[cfg(windows)]
                 lock_webview(&w);
@@ -106,6 +118,12 @@ pub fn run() {
             terminals::kill_session,
             terminals::running_sessions,
             terminals::reset_agent_session,
+            history::history_refresh,
+            history::history_indexing,
+            history::history_search,
+            history::history_resume,
+            changes::session_changes,
+            changes::session_diff,
         ])
         .build(tauri::generate_context!())
         .expect("échec du démarrage de Sillage");

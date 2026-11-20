@@ -11,6 +11,7 @@ import {
 import { toast } from "@/design-system/toast";
 
 export type RunState = "stopped" | "starting" | "running" | "exited" | "error";
+export type Activity = "working" | "waiting" | "done";
 
 export interface Runtime {
   state: RunState;
@@ -19,6 +20,9 @@ export interface Runtime {
   exitCode?: number | null;
   killed?: boolean;
   error?: string;
+  activity?: Activity;
+  activityAt?: number;
+  unseen?: boolean;
 }
 
 interface SessionsState {
@@ -36,6 +40,12 @@ interface SessionsState {
   setProfile: (id: string, profileId: string | null) => Promise<void>;
   resetAgent: (id: string) => Promise<void>;
   setRuntime: (id: string, r: Runtime) => void;
+  setActivity: (
+    id: string,
+    activity: Activity,
+    at: number,
+    unseen: boolean,
+  ) => void;
   opening: Record<string, boolean>;
   setOpening: (id: string, v: boolean) => void;
   focus: (id: string | null) => void;
@@ -164,7 +174,26 @@ export const useSessions = create<SessionsState>((set) => ({
 
   setRuntime: (id, r) => set((st) => ({ runtime: { ...st.runtime, [id]: r } })),
   setOpening: (id, v) => set((st) => ({ opening: { ...st.opening, [id]: v } })),
-  focus: (focusedId) => set({ focusedId }),
+  setActivity: (id, activity, at, unseen) =>
+    set((st) => {
+      const r = st.runtime[id];
+      if (!r || r.state !== "running" || (r.activityAt ?? 0) > at) return st;
+      return {
+        runtime: {
+          ...st.runtime,
+          [id]: { ...r, activity, activityAt: at, unseen },
+        },
+      };
+    }),
+  focus: (focusedId) =>
+    set((st) => {
+      const r = focusedId ? st.runtime[focusedId] : undefined;
+      if (!focusedId || !r?.unseen) return { focusedId };
+      return {
+        focusedId,
+        runtime: { ...st.runtime, [focusedId]: { ...r, unseen: false } },
+      };
+    }),
   toggleMaximize: (id) =>
     set((st) => ({
       maximizedId: st.maximizedId === id ? null : id,

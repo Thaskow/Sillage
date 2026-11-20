@@ -13,6 +13,10 @@ import { useProfiles } from "./features/profiles/store";
 import { listen } from "@tauri-apps/api/event";
 import type { ExitEvent } from "./lib/ipc";
 import { resolveLang, setLang } from "./lib/i18n";
+import {
+  onAgentActivity,
+  type ActivityEvent,
+} from "./features/sessions/activity";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -46,10 +50,14 @@ async function boot() {
     if (s.settings.terminalFontSize !== prev.settings.terminalFontSize)
       terminals.retheme();
   });
-  if (inTauri)
+  if (inTauri) {
     await listen<ExitEvent>("session-exit", (e) =>
       terminals.onExit(e.payload.id, e.payload.code, e.payload.killed),
     );
+    await listen<ActivityEvent>("agent-activity", (e) =>
+      onAgentActivity(e.payload),
+    );
+  }
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App />

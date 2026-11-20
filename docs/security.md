@@ -48,6 +48,14 @@ et n'en garde que les compteurs de jetons, le modèle, l'horodatage et, pour Cod
 enregistre lui-même. Ces relevés sont gardés en mémoire par fichier, tant que sa date et sa taille ne changent pas, pour ne relire que
 les fichiers modifiés. Le contenu des conversations n'est ni conservé ni transmis.
 
+**Historique** (`crates/sillage-core/src/history.rs`, `src-tauri/src/history.rs`) : en tâche de fond, à l'ouverture de
+Sillage et de la vue Historique, Sillage lit en lecture seule les transcripts `projects/*/*.jsonl` (Claude Code) et
+`sessions/**/rollout-*.jsonl` (Codex) de la configuration habituelle et de chaque compte. Il n'en garde que le texte
+des messages utilisateur et assistant (tronqué par message et par conversation), le titre, le dossier, l'identifiant
+et les dates, dans une table FTS5 de `sillage.db`, sur le poste. Raisonnements, appels et sorties d'outils,
+sous-agents et messages système sont ignorés. Un transcript supprimé disparaît de l'index à la passe suivante ; les
+transcripts ne sont jamais modifiés. Rien n'est transmis.
+
 **Limites du forfait Claude** (activé par défaut à la demande de l'utilisateur, désactivable par le réglage « Relever les limites du forfait Claude » dans Agents,
 `crates/sillage-core/src/claude_limits.rs` et `src-tauri/src/accounts.rs`) : c'est la seule exception à la règle « ne
 jamais manipuler les jetons », autorisée explicitement par l'utilisateur pour ce seul usage. Sillage lit

@@ -24,7 +24,18 @@ export function runtimeStatus(r: Runtime | undefined): {
 } {
   switch (r?.state) {
     case "running":
-      return { status: "running", label: t("Processus actif") };
+      switch (r.activity) {
+        case "working":
+          return { status: "active", label: t("Travaille") };
+        case "waiting":
+          return { status: "waiting", label: t("Attend votre validation") };
+        case "done":
+          return r.unseen
+            ? { status: "waiting", label: t("A terminé, à vous") }
+            : { status: "idle", label: t("En attente d'un message") };
+        default:
+          return { status: "running", label: t("Processus actif") };
+      }
     case "starting":
       return { status: "running", label: t("Démarrage…") };
     case "exited":

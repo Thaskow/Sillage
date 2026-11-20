@@ -365,12 +365,19 @@ export function installMockBackend(
         d.profileId = (a.profileId as string | null) ?? null;
         return null;
       }
+      case "history_search":
+        return [];
+      case "history_refresh":
+      case "history_indexing":
+        return false;
       case "running_sessions":
         return [...running].map((rid) => ({
           id: rid,
           pid: 1234,
           startedAt: Date.now(),
         }));
+      case "session_changes":
+        return { status: "notRepo", cwd: "C:\\Users\\demo" };
       default:
         if (cmd.startsWith("plugin:")) return null;
         throw { kind: "invalid", message: `commande inconnue ${cmd}` };

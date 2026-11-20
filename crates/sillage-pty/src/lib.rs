@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PtyError {
@@ -18,6 +18,8 @@ pub enum PtyError {
     Spawn { program: String, reason: String },
     #[error("terminal : {0}")]
     Io(String),
+    #[error("{0}")]
+    Host(String),
 }
 
 pub type Result<T> = std::result::Result<T, PtyError>;
@@ -32,14 +34,14 @@ pub struct LaunchSpec {
     pub rows: u16,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExitInfo {
     pub code: Option<u32>,
     pub killed: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RunningInfo {
     pub id: String,

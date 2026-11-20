@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenêtre principale : commandes locales, contrôle de la fenêtre et mises à jour signées.",
+  "description": "Fenêtre principale : commandes locales, contrôle de la fenêtre, notifications et mises à jour signées.",
   "windows": [
     "main"
   ],
@@ -29,6 +29,7 @@
       ]
     },
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "notification:default"
   ]
 }

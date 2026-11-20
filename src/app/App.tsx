@@ -9,7 +9,7 @@ import { WorkspaceView } from "@/features/workspace/WorkspaceView";
 import { GroupDialog } from "@/features/workspace/GroupDialog";
 import { UpdateDialog } from "@/features/updates/UpdateDialog";
 import { SettingsView } from "@/features/settings/SettingsView";
-import { HistoryView } from "@/features/placeholders";
+import { HistoryView } from "@/features/history/HistoryView";
 import { ActivityView } from "@/features/activity/ActivityView";
 import { CommandPalette } from "@/features/palette/CommandPalette";
 import { useSettings } from "@/features/settings/store";

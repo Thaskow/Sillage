@@ -38,7 +38,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cx } from "@/lib/cx";
 import type { Group } from "@/lib/ipc";
-import { IconButton, Kbd, Tooltip } from "@/design-system/primitives";
+import {
+  IconButton,
+  Kbd,
+  StatusDot,
+  Tooltip,
+} from "@/design-system/primitives";
+import { useUnseen } from "@/features/sessions/activity";
 import {
   ConfirmDialog,
   ContextMenu,
@@ -420,6 +426,7 @@ function GroupRow({
   sortable: boolean;
 }) {
   const selected = useWorkspace((s) => s.selectedId === group.id);
+  const unseen = useUnseen(group.id);
   const view = useUi((s) => s.view);
   const select = useWorkspace((s) => s.select);
   const setView = useUi((s) => s.setView);
@@ -574,6 +581,20 @@ function GroupRow({
             >
               {group.name}
             </span>
+          )}
+          {!renaming && unseen > 0 && (
+            <Tooltip
+              content={
+                unseen > 1
+                  ? `${unseen} agents vous attendent`
+                  : "Un agent vous attend"
+              }
+              side="right"
+            >
+              <span className="flex">
+                <StatusDot status="waiting" />
+              </span>
+            </Tooltip>
           )}
           {!renaming && group.pinned && index < 9 && (
             <Tooltip content={t("Accès rapide")} side="right">
