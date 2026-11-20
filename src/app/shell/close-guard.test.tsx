@@ -25,7 +25,9 @@ describe("close guard", () => {
   ])("« %s » renvoie %s", async (label, expected) => {
     render(<ConfirmHost />);
     const choice = askCloseWithRunning(2);
-    expect(await screen.findByText(/2 sessions sont en cours/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/2 sessions sont en cours/),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: label }));
     expect(await choice).toBe(expected);
   });
