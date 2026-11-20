@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/Thaskow/Sillage/compare/v0.4.1...v0.4.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* **ui:** centrer l'état vide et une seule sélection dans la barre latérale ([#13](https://github.com/Thaskow/Sillage/issues/13)) ([6c8f900](https://github.com/Thaskow/Sillage/commit/6c8f900730dcaa93b0c37ac989c036fb600f2f71))
+
 ## [0.4.1](https://github.com/Thaskow/Sillage/compare/v0.4.0...v0.4.1) (2026-11-20)
 
 
