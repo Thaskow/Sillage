@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { create } from "zustand";
 import { Button } from "./primitives";
 import { Dialog } from "./overlays";
@@ -48,7 +49,7 @@ export function ConfirmHost() {
       footer={
         <>
           <Button variant="ghost" onClick={() => close("cancel")}>
-            Annuler
+            {t("Annuler")}
           </Button>
           <Button
             autoFocus={!alternative}

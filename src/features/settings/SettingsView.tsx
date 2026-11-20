@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { cx } from "@/lib/cx";
 import { ipc, type AppInfo, type Settings } from "@/lib/ipc";
@@ -20,84 +21,90 @@ export function SettingsView() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[680px] px-8 py-8">
         <h1 className="text-[18px] font-semibold tracking-[-0.015em]">
-          Paramètres
+          {t("Paramètres")}
         </h1>
         <p className="mt-1 text-fg-2">
-          Tout est enregistré localement, dans la base de Sillage sur cette
-          machine.
+          {t(
+            "Tout est enregistré localement, dans la base de Sillage sur cette machine.",
+          )}
         </p>
 
-        <Section title="Agents">
+        <Section title={t("Agents")}>
           <Row
-            label="Comptes, réglages et consommation"
-            hint="Comptes Claude Code et Codex, configuration partagée, compte par défaut et consommation se gèrent dans la vue Agents."
+            label={t("Comptes, réglages et consommation")}
+            hint={t(
+              "Comptes Claude Code et Codex, configuration partagée, compte par défaut et consommation se gèrent dans la vue Agents.",
+            )}
           >
             <Button onClick={() => useUi.getState().openAgents("settings")}>
-              Ouvrir
+              {t("Ouvrir")}
             </Button>
           </Row>
         </Section>
 
-        <Section title="Apparence">
+        <Section title={t("Apparence")}>
           <Row
-            label="Thème"
-            hint="« Système » suit le mode clair ou sombre de Windows."
+            label={t("Langue")}
+            hint={t("« Système » suit la langue de Windows.")}
+          >
+            <Segmented<Settings["language"]>
+              value={s.language}
+              onChange={(language) => update({ language })}
+              options={[
+                { value: "system", label: t("Système") },
+                { value: "fr", label: "Français" },
+                { value: "en", label: "English" },
+              ]}
+            />
+          </Row>
+          <Row
+            label={t("Thème")}
+            hint={t("« Système » suit le mode clair ou sombre de Windows.")}
           >
             <Segmented<Settings["theme"]>
               value={s.theme}
               onChange={(theme) => update({ theme })}
               options={[
-                { value: "system", label: "Système" },
-                { value: "light", label: "Clair" },
-                { value: "dark", label: "Sombre" },
+                { value: "system", label: t("Système") },
+                { value: "light", label: t("Clair") },
+                { value: "dark", label: t("Sombre") },
               ]}
             />
           </Row>
-          <Row label="Densité">
+          <Row label={t("Densité")}>
             <Segmented<Settings["density"]>
               value={s.density}
               onChange={(density) => update({ density })}
               options={[
-                { value: "comfortable", label: "Confortable" },
-                { value: "compact", label: "Compacte" },
+                { value: "comfortable", label: t("Confortable") },
+                { value: "compact", label: t("Compacte") },
               ]}
             />
           </Row>
           <Row
-            label="Animations"
-            hint="« Système » respecte le réglage Windows « Effets d'animation »."
+            label={t("Animations")}
+            hint={t(
+              "« Système » respecte le réglage Windows « Effets d'animation ».",
+            )}
           >
             <Segmented<Settings["motion"]>
               value={s.motion}
               onChange={(motion) => update({ motion })}
               options={[
-                { value: "system", label: "Système" },
-                { value: "reduced", label: "Réduites" },
-                { value: "full", label: "Complètes" },
+                { value: "system", label: t("Système") },
+                { value: "reduced", label: t("Réduites") },
+                { value: "full", label: t("Complètes") },
               ]}
             />
           </Row>
         </Section>
 
-        <Section title="Notifications">
+        <Section title={t("Confidentialité")}>
           <Row
-            label="Notifications Windows"
-            hint="Affichées uniquement sur cette machine, sans contenu de code ni secret."
-          >
-            <Switch
-              checked={s.notificationsEnabled}
-              onChange={(notificationsEnabled) =>
-                update({ notificationsEnabled })
-              }
-              label="Notifications Windows"
-            />
-          </Row>
-        </Section>
-
-        <Section title="Confidentialité">
-          <Row
-            label="Connexions sortantes de Sillage"
-            hint="Sillage n'a ni télémétrie ni analytics et n'ouvre aucun port réseau. Il ne contacte que GitHub (recherche des mises à jour, ci-dessous) et api.anthropic.com (limites du forfait Claude, dans Agents) ; les deux se désactivent. Claude Code et Codex, lancés par vous, communiquent avec leurs services selon leur propre fonctionnement."
+            label={t("Connexions sortantes de Sillage")}
+            hint={t(
+              "Sillage n'a ni télémétrie ni analytics et n'ouvre aucun port réseau. Il ne contacte que GitHub (recherche des mises à jour, ci-dessous) et api.anthropic.com (limites du forfait Claude, dans Agents) ; les deux se désactivent. Claude Code et Codex, lancés par vous, communiquent avec leurs services selon leur propre fonctionnement.",
+            )}
           >
             <span className="text-[var(--fs-sm)] text-fg-3">
               GitHub, Anthropic
@@ -107,13 +114,13 @@ export function SettingsView() {
 
         <UpdatesSection />
 
-        <Section title="Stockage local">
-          <Row label="Base de données" hint={storageHint(info)}>
+        <Section title={t("Stockage local")}>
+          <Row label={t("Base de données")} hint={storageHint(info)}>
             <span className="text-fg-2 tabular-nums">
-              {info ? `Schéma v${info.schemaVersion}` : "—"}
+              {info ? t("Schéma v{n}", { n: info.schemaVersion }) : "—"}
             </span>
           </Row>
-          <Row label="Version">
+          <Row label={t("Version")}>
             <span className="text-fg-2 tabular-nums">
               {info?.version ?? "—"}
             </span>
@@ -125,9 +132,12 @@ export function SettingsView() {
 }
 
 function storageHint(info: AppInfo | null): string {
-  if (!info) return "Indisponible.";
+  if (!info) return t("Indisponible.");
   if (info.storage.status === "recovered_from_corruption")
-    return `La base était illisible : elle a été mise de côté (${info.storage.backup}) et une base neuve a été créée.`;
+    return t(
+      "La base était illisible : elle a été mise de côté ({backup}) et une base neuve a été créée.",
+      { backup: info.storage.backup },
+    );
   return "%LOCALAPPDATA%\\fr.thaskow.sillage\\sillage.db";
 }
 
@@ -206,39 +216,41 @@ function UpdatesSection() {
   const u = useUpdates();
   const status =
     u.status === "checking"
-      ? "Recherche…"
+      ? t("Recherche…")
       : u.status === "uptodate"
-        ? "Sillage est à jour."
+        ? t("Sillage est à jour.")
         : u.status === "available"
-          ? `Version ${u.version} disponible.`
+          ? t("Version {version} disponible.", { version: u.version ?? "" })
           : u.status === "downloading" || u.status === "installing"
-            ? "Installation en cours…"
+            ? t("Installation en cours…")
             : u.status === "error"
-              ? `Recherche impossible : ${u.error}`
-              : "Pas encore recherché.";
+              ? t("Recherche impossible : {error}", { error: u.error ?? "" })
+              : t("Pas encore recherché.");
   return (
-    <Section title="Mises à jour">
+    <Section title={t("Mises à jour")}>
       <Row
-        label="Rechercher automatiquement"
-        hint="Au démarrage puis toutes les 6 heures, Sillage lit la dernière version publiée sur github.com/Thaskow/sillage. Rien n'est installé sans votre accord."
+        label={t("Rechercher automatiquement")}
+        hint={t(
+          "Au démarrage puis toutes les 6 heures, Sillage lit la dernière version publiée sur github.com/Thaskow/sillage. Rien n'est installé sans votre accord.",
+        )}
       >
         <Switch
           checked={s.autoUpdateCheck}
           onChange={(autoUpdateCheck) => update({ autoUpdateCheck })}
-          label="Rechercher automatiquement les mises à jour"
+          label={t("Rechercher automatiquement les mises à jour")}
         />
       </Row>
-      <Row label="Version installée" hint={status}>
+      <Row label={t("Version installée")} hint={status}>
         {u.status === "available" ? (
           <Button variant="primary" onClick={() => u.setDialogOpen(true)}>
-            Mettre à jour
+            {t("Mettre à jour")}
           </Button>
         ) : (
           <Button
             disabled={u.status === "checking"}
             onClick={() => void u.check()}
           >
-            Rechercher maintenant
+            {t("Rechercher maintenant")}
           </Button>
         )}
       </Row>

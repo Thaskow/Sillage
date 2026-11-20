@@ -79,6 +79,40 @@ pub fn find_codex_session(
     best.map(|(_, id)| id)
 }
 
+fn hook_command(record: &Path, windows: bool) -> (&'static str, String) {
+    let path = record.display().to_string();
+    if windows {
+        let target = path.replace('\'', "''");
+        (
+            "powershell",
+            format!(
+                "[Console]::In.ReadToEnd() | Set-Content -LiteralPath '{target}' -Encoding utf8"
+            ),
+        )
+    } else {
+        ("bash", format!("cat > '{}'", path.replace('\'', r"'\''")))
+    }
+}
+
+pub fn claude_hook_settings(record: &Path) -> String {
+    let (shell, command) = hook_command(record, cfg!(windows));
+    serde_json::json!({
+        "hooks": {
+            "SessionStart": [{
+                "hooks": [{ "type": "command", "shell": shell, "command": command }]
+            }]
+        }
+    })
+    .to_string()
+}
+
+pub fn recorded_claude_session(record: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(record).ok()?;
+    let v: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    let id = v["session_id"].as_str()?;
+    valid_id(id).then(|| id.to_string())
+}
+
 pub struct Saved<'a> {
     pub session_id: Option<&'a str>,
     pub started_at: Option<i64>,
@@ -143,6 +177,50 @@ pub fn plan(
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn reads_the_session_recorded_by_the_hook() {
+        let d = tempfile::tempdir().unwrap();
+        let rec = d.path().join("it's.json");
+        assert_eq!(recorded_claude_session(&rec), None);
+        let settings: Value = serde_json::from_str(&claude_hook_settings(&rec)).unwrap();
+        let hook = &settings["hooks"]["SessionStart"][0]["hooks"][0];
+        assert_eq!(hook["type"], "command");
+        let (shell, cmd) = hook_command(&rec, true);
+        assert_eq!(shell, "powershell");
+        assert!(cmd.contains("it''s.json'"), "{cmd}");
+        let (shell, cmd) = hook_command(&rec, false);
+        assert_eq!(shell, "bash");
+        assert!(cmd.ends_with(r"it'\''s.json'"), "{cmd}");
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            let mut child = std::process::Command::new("bash")
+                .args(["-c", &cmd])
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(br#"{"session_id":"abc-123","source":"clear"}"#)
+                .unwrap();
+            assert!(child.wait().unwrap().success());
+            assert_eq!(recorded_claude_session(&rec).as_deref(), Some("abc-123"));
+        }
+        fs::write(
+            &rec,
+            "\u{feff}{\"session_id\":\"7c58cbe5-720a-42f8-adfd-6925e958a400\",\"source\":\"resume\"}\r\n",
+        )
+        .unwrap();
+        assert_eq!(
+            recorded_claude_session(&rec).as_deref(),
+            Some("7c58cbe5-720a-42f8-adfd-6925e958a400")
+        );
+        fs::write(&rec, r#"{"session_id":"../../x"}"#).unwrap();
+        assert_eq!(recorded_claude_session(&rec), None);
+    }
 
     #[test]
     fn claude_starts_with_id_then_resumes_once_transcript_exists() {

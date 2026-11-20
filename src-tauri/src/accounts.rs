@@ -1,9 +1,10 @@
 use std::path::{Path, PathBuf};
+use std::sync::PoisonError;
 
 use serde::Serialize;
 use sillage_core::claude_limits::{self as limits, Token};
 use sillage_core::profiles::{
-    account_status, AccountStatus, NewProfile, Profile, ProfilePatch, Provider,
+    self, account_status, AccountStatus, NewProfile, Profile, ProfilePatch, Provider,
 };
 use sillage_core::sharing::{self, McpCopy, Sharing};
 use sillage_core::usage::{self, Limits, Usage};
@@ -27,8 +28,8 @@ fn managed_root(state: &AppState) -> PathBuf {
     state.data_dir.join("profiles")
 }
 
-fn is_managed(state: &AppState, dir: &Path) -> bool {
-    dir.parent() == Some(managed_root(state).as_path())
+fn is_managed(state: &AppState, profile: &Profile) -> bool {
+    profiles::is_managed(&managed_root(state), profile)
 }
 
 fn info(state: &AppState, profile: Profile) -> ProfileInfo {
@@ -40,19 +41,22 @@ fn info(state: &AppState, profile: Profile) -> ProfileInfo {
         } else {
             Sharing::default()
         },
-        managed: is_managed(state, &dir),
+        managed: is_managed(state, &profile),
         profile,
     }
 }
 
 #[tauri::command]
-pub fn list_profiles(state: State<AppState>) -> Result<Vec<ProfileInfo>> {
+pub async fn list_profiles(state: State<'_, AppState>) -> Result<Vec<ProfileInfo>> {
     let list = with_store(&state, |s| s.profiles())?;
     Ok(list.into_iter().map(|p| info(&state, p)).collect())
 }
 
 #[tauri::command]
-pub fn create_profile(state: State<AppState>, profile: NewProfile) -> Result<ProfileInfo> {
+pub async fn create_profile(
+    state: State<'_, AppState>,
+    profile: NewProfile,
+) -> Result<ProfileInfo> {
     let root = managed_root(&state);
     let created = with_store(&state, |s| {
         s.create_profile(profile, |id| root.join(id).display().to_string())
@@ -66,8 +70,8 @@ pub fn create_profile(state: State<AppState>, profile: NewProfile) -> Result<Pro
 }
 
 #[tauri::command]
-pub fn update_profile(
-    state: State<AppState>,
+pub async fn update_profile(
+    state: State<'_, AppState>,
     id: String,
     patch: ProfilePatch,
 ) -> Result<ProfileInfo> {
@@ -85,10 +89,14 @@ pub fn update_profile(
 }
 
 #[tauri::command]
-pub fn delete_profile(state: State<AppState>, id: String, remove_files: bool) -> Result<()> {
+pub async fn delete_profile(
+    state: State<'_, AppState>,
+    id: String,
+    remove_files: bool,
+) -> Result<()> {
     let p = with_store(&state, |s| s.profile(&id))?;
     let dir = PathBuf::from(&p.config_dir);
-    if remove_files && !is_managed(&state, &dir) {
+    if remove_files && !is_managed(&state, &p) {
         return Err(Error::Invalid(
             "Sillage ne supprime que les dossiers de comptes qu'il a créés".into(),
         ));
@@ -121,7 +129,9 @@ pub fn set_session_profile(
     }
     with_store(&state, |s| {
         s.set_session_profile(&id, profile_id.as_deref())
-    })
+    })?;
+    crate::terminals::forget_agent_files(&state, &id);
+    Ok(())
 }
 
 pub fn launch_env(state: &AppState, profile_id: Option<&str>) -> Result<Vec<(String, String)>> {
@@ -144,7 +154,7 @@ fn in_use(state: &AppState, profile_id: &str) -> Result<bool> {
 }
 
 #[tauri::command]
-pub fn copy_mcp_servers(state: State<AppState>, id: String) -> Result<McpCopy> {
+pub async fn copy_mcp_servers(state: State<'_, AppState>, id: String) -> Result<McpCopy> {
     let p = with_store(&state, |s| s.profile(&id))?;
     if p.provider != Provider::Claude {
         return Err(Error::Invalid(
@@ -254,9 +264,5 @@ fn with_store_ref<T>(
     state: &AppState,
     f: impl FnOnce(&sillage_core::Store) -> Result<T>,
 ) -> Result<T> {
-    let store = state
-        .store
-        .lock()
-        .map_err(|_| Error::Invalid("accès concurrent à la base interrompu".into()))?;
-    f(&store)
+    f(&state.store.lock().unwrap_or_else(PoisonError::into_inner))
 }

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, ErrorCode};
 use serde::Serialize;
 
 use crate::{now_ms, Result};
@@ -79,6 +79,14 @@ pub struct Store {
     pub(crate) conn: Connection,
 }
 
+fn is_corrupt(e: &crate::Error) -> bool {
+    matches!(
+        e,
+        crate::Error::Db(rusqlite::Error::SqliteFailure(f, _))
+            if matches!(f.code, ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
+    )
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<(Self, OpenOutcome)> {
         if let Some(dir) = path.parent() {
@@ -94,7 +102,7 @@ impl Store {
                     OpenOutcome::Created
                 },
             )),
-            Err(_) if existed => {
+            Err(e) if existed && is_corrupt(&e) => {
                 let backup = path.with_extension(format!("corrupt-{}.db", now_ms()));
                 std::fs::rename(path, &backup)?;
                 for ext in ["db-wal", "db-shm"] {
@@ -117,7 +125,10 @@ impl Store {
         let conn = Connection::open(path)?;
         let check: String = conn.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
         if check != "ok" {
-            return Err(crate::Error::Invalid(format!("intégrité : {check}")));
+            return Err(crate::Error::Db(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+                Some(format!("intégrité : {check}")),
+            )));
         }
         conn.pragma_update(None, "journal_mode", "WAL")?;
         Self::init(conn)
@@ -132,22 +143,21 @@ impl Store {
     }
 
     fn migrate(&mut self) -> Result<()> {
-        let current: usize = self
-            .conn
-            .query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        let current = self.schema_version()?;
         for (i, sql) in MIGRATIONS.iter().enumerate().skip(current) {
             let tx = self.conn.transaction()?;
             tx.execute_batch(sql)?;
-            tx.pragma_update(None, "user_version", i + 1)?;
+            tx.pragma_update(None, "user_version", (i + 1) as u32)?;
             tx.commit()?;
         }
         Ok(())
     }
 
     pub fn schema_version(&self) -> Result<usize> {
-        Ok(self
+        let v: u32 = self
             .conn
-            .query_row("PRAGMA user_version", [], |r| r.get(0))?)
+            .query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        Ok(v as usize)
     }
 
     pub fn latest_schema_version() -> usize {
@@ -195,5 +205,21 @@ mod tests {
         };
         assert!(backup.exists());
         assert_eq!(s.schema_version().unwrap(), Store::latest_schema_version());
+    }
+
+    #[test]
+    fn failing_migration_keeps_the_database_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sillage.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE categories (x TEXT);")
+            .unwrap();
+        assert!(Store::open(&path).is_err());
+        assert!(path.exists());
+        assert!(!std::fs::read_dir(dir.path())
+            .unwrap()
+            .flatten()
+            .any(|e| e.file_name().to_string_lossy().contains("corrupt")));
     }
 }

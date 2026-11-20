@@ -112,18 +112,26 @@ pub fn find_program(
     None
 }
 
-pub fn launch_program(program: &Path, args: Vec<String>) -> (PathBuf, Vec<String>) {
+const CMD_METACHARS: &[char] = &['&', '|', '<', '>', '^', '%', '!', '"', '\r', '\n'];
+
+pub fn launch_program(program: &Path, args: Vec<String>) -> Result<(PathBuf, Vec<String>)> {
     let is_script = program
         .extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("cmd") || e.eq_ignore_ascii_case("bat"));
-    if is_script {
-        let mut a = vec!["/d".into(), "/c".into(), program.display().to_string()];
-        a.extend(args);
-        ("cmd.exe".into(), a)
-    } else {
-        (program.to_path_buf(), args)
+    if !is_script {
+        return Ok((program.to_path_buf(), args));
     }
+    if let Some(bad) = args.iter().find(|a| a.contains(CMD_METACHARS)) {
+        return Err(Error::Invalid(format!(
+            "l'argument « {bad} » contient un caractère que cmd.exe interpréterait \
+             (& | < > ^ % ! \") : {} est un script .cmd ou .bat",
+            program.display()
+        )));
+    }
+    let mut a = vec!["/d".into(), "/c".into(), program.display().to_string()];
+    a.extend(args);
+    Ok(("cmd.exe".into(), a))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -410,9 +418,29 @@ mod tests {
         )
         .unwrap();
         assert!(found.ends_with("claude.cmd"));
-        let (prog, args) = launch_program(&found, vec!["--resume".into()]);
+        let (prog, args) = launch_program(&found, vec!["--resume".into()]).unwrap();
         assert_eq!(prog, PathBuf::from("cmd.exe"));
         assert_eq!(args[0..2], ["/d", "/c"]);
         assert_eq!(args.last().unwrap(), "--resume");
+    }
+
+    #[test]
+    fn scripts_refuse_arguments_cmd_would_interpret() {
+        let script = Path::new("C:/outils/agent.cmd");
+        for bad in [
+            "a&calc",
+            "x|y",
+            "%PATH%",
+            "say \"hi\"",
+            "!v!",
+            "a^b",
+            "l1\nl2",
+        ] {
+            assert!(launch_program(script, vec![bad.into()]).is_err(), "{bad}");
+        }
+        assert!(launch_program(script, vec!["--model".into(), "opus 5".into()]).is_ok());
+        let exe = Path::new("C:/outils/agent.exe");
+        let (prog, args) = launch_program(exe, vec!["a&b".into()]).unwrap();
+        assert_eq!((prog.as_path(), args), (exe, vec!["a&b".to_string()]));
     }
 }

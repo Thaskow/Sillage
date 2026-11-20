@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { ReactNode } from "react";
 import * as RDialog from "@radix-ui/react-dialog";
 import * as RContext from "@radix-ui/react-context-menu";
@@ -75,7 +76,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Annuler
+            {t("Annuler")}
           </Button>
           <Button
             variant="danger"

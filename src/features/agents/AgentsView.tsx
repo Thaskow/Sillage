@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { cx } from "@/lib/cx";
 import { useUi, type AgentsTab } from "@/app/ui-store";
 import { UsagePanel } from "./UsagePanel";
@@ -15,11 +16,11 @@ export function AgentsView() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[920px] px-8 py-8">
         <h1 className="text-[18px] font-semibold tracking-[-0.015em]">
-          Agents
+          {t("Agents")}
         </h1>
         <div
           role="tablist"
-          aria-label="Agents"
+          aria-label={t("Agents")}
           className="mt-4 mb-6 flex gap-1 border-b border-line"
         >
           {tabs.map(([v, l]) => (
@@ -35,7 +36,7 @@ export function AgentsView() {
                   : "border-transparent text-fg-2 hover:text-fg",
               )}
             >
-              {l}
+              {t(l)}
             </button>
           ))}
         </div>

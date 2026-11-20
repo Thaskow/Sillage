@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Group, SessionDef } from "@/lib/ipc";
@@ -102,11 +103,13 @@ export function PanelArea({
     const up = () => {
       target.removeEventListener("pointermove", move);
       target.removeEventListener("pointerup", up);
+      target.removeEventListener("pointercancel", up);
       setLive(null);
       updateGroup(group.id, { layout: { ...layout, weights: current } });
     };
     target.addEventListener("pointermove", move);
     target.addEventListener("pointerup", up);
+    target.addEventListener("pointercancel", up);
   };
 
   return (
@@ -120,7 +123,7 @@ export function PanelArea({
             <div
               role="separator"
               aria-orientation={horizontal ? "vertical" : "horizontal"}
-              aria-label="Redimensionner les panneaux"
+              aria-label={t("Redimensionner les panneaux")}
               onPointerDown={(e) => startDrag(e, visible[i - 1]!, s)}
               onDoubleClick={() =>
                 updateGroup(group.id, { layout: { ...layout, weights: {} } })
@@ -179,7 +182,7 @@ function TabbedPanels({
       <div
         ref={tabs}
         role="tablist"
-        aria-label="Sessions du groupe"
+        aria-label={t("Sessions du groupe")}
         onKeyDown={onKeyDown}
         className="flex shrink-0 gap-0.5 overflow-x-auto pb-1.5"
       >
@@ -212,7 +215,7 @@ function TabbedPanels({
                 </span>
               </button>
               <button
-                aria-label={`Fermer ${s.title}`}
+                aria-label={t("Fermer {name}", { name: s.title })}
                 tabIndex={-1}
                 onClick={() => closeSession(s.id)}
                 className={cx(

@@ -266,6 +266,7 @@ impl Store {
 
     pub fn duplicate_group(&mut self, id: &str) -> Result<Group> {
         let src = self.group(id)?;
+        let tx = self.conn.unchecked_transaction()?;
         let copy = self.create_group(NewGroup {
             name: format!("{} (copie)", src.name).chars().take(80).collect(),
             color: src.color.clone(),
@@ -274,7 +275,6 @@ impl Store {
             default_profile_id: src.default_profile_id.clone(),
         })?;
         let now = now_ms();
-        let tx = self.conn.transaction()?;
         {
             tx.execute(
                 "INSERT INTO sessions (id, group_id, kind, title, profile_id, cwd, command, args, persistent, position, created_at)

@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { cx } from "@/lib/cx";
@@ -49,8 +50,9 @@ export function GroupDialog() {
   const submit = async () => {
     if (!valid || busy) return;
     setBusy(true);
+    let ok: boolean;
     if (editing) {
-      await updateGroup(editing.id, {
+      ok = await updateGroup(editing.id, {
         name: name.trim(),
         color,
         icon,
@@ -65,30 +67,34 @@ export function GroupDialog() {
         categoryId,
         defaultProfileId: profileId,
       });
+      ok = !!created;
       if (created && dialog?.mode === "create" && dialog.fromScratch)
         await moveAllSessions(SCRATCH_ID, created.id);
     }
-    close();
+    if (ok) close();
+    else setBusy(false);
   };
 
   return (
     <Dialog
       open={!!dialog}
       onOpenChange={(o) => !o && close()}
-      title={editing ? "Modifier le groupe" : "Nouveau groupe"}
+      title={editing ? t("Modifier le groupe") : t("Nouveau groupe")}
       description={
         editing
           ? undefined
-          : "Un groupe réunit des agents et des terminaux autour d'une activité. Aucun dépôt Git n'est nécessaire."
+          : t(
+              "Un groupe réunit des agents et des terminaux autour d'une activité. Aucun dépôt Git n'est nécessaire.",
+            )
       }
       width={460}
       footer={
         <>
           <Button variant="ghost" onClick={close}>
-            Annuler
+            {t("Annuler")}
           </Button>
           <Button variant="primary" disabled={!valid || busy} onClick={submit}>
-            {editing ? "Enregistrer" : "Créer le groupe"}
+            {editing ? t("Enregistrer") : t("Créer le groupe")}
           </Button>
         </>
       }
@@ -103,20 +109,24 @@ export function GroupDialog() {
         <div className="flex items-end gap-3">
           <GroupGlyph icon={icon} color={color} size={36} />
           <div className="flex-1">
-            <Field label="Nom">
+            <Field label={t("Nom")}>
               <Input
                 autoFocus
                 value={name}
                 maxLength={80}
-                placeholder="Travail, CStonx, Arise…"
+                placeholder={t("Travail, CStonx, Arise…")}
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
           </div>
         </div>
 
-        <Field label="Couleur">
-          <div role="radiogroup" aria-label="Couleur" className="flex gap-1.5">
+        <Field label={t("Couleur")}>
+          <div
+            role="radiogroup"
+            aria-label={t("Couleur")}
+            className="flex gap-1.5"
+          >
             {groupColors.map((c) => (
               <button
                 key={c}
@@ -136,10 +146,10 @@ export function GroupDialog() {
           </div>
         </Field>
 
-        <Field label="Icône">
+        <Field label={t("Icône")}>
           <div
             role="radiogroup"
-            aria-label="Icône"
+            aria-label={t("Icône")}
             className="grid grid-cols-10 gap-1"
           >
             {Object.entries(groupIcons).map(([key, Icon]) => (
@@ -164,13 +174,13 @@ export function GroupDialog() {
         </Field>
 
         {categories.length > 0 && (
-          <Field label="Catégorie">
+          <Field label={t("Catégorie")}>
             <select
               value={categoryId ?? ""}
               onChange={(e) => setCategoryId(e.target.value || null)}
               className="h-[var(--row)] rounded-md border border-line-strong bg-raised px-2 text-fg outline-none focus:border-accent"
             >
-              <option value="">Aucune</option>
+              <option value="">{t("Aucune")}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -181,15 +191,17 @@ export function GroupDialog() {
         )}
         {profiles.length > 0 && (
           <Field
-            label="Compte par défaut"
-            hint="Utilisé pour les nouvelles sessions de ce groupe (Ctrl T et menu Agent)."
+            label={t("Compte par défaut")}
+            hint={t(
+              "Utilisé pour les nouvelles sessions de ce groupe (Ctrl T et menu Agent).",
+            )}
           >
             <select
               value={profileId ?? ""}
               onChange={(e) => setProfileId(e.target.value || null)}
               className="h-[var(--row)] rounded-md border border-line-strong bg-raised px-2 text-fg outline-none focus:border-accent"
             >
-              <option value="">Défaut des agents</option>
+              <option value="">{t("Défaut des agents")}</option>
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({providerLabel[p.provider]})

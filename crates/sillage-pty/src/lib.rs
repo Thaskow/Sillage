@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
@@ -47,7 +47,7 @@ pub struct RunningInfo {
     pub started_at: i64,
 }
 
-pub type OutputFn = Box<dyn Fn(&[u8]) + Send + 'static>;
+pub type OutputFn = Box<dyn Fn(Vec<u8>) + Send + 'static>;
 pub type ExitFn = Box<dyn FnOnce(ExitInfo) + Send + 'static>;
 
 struct Session {
@@ -62,6 +62,10 @@ struct Session {
 #[derive(Default, Clone)]
 pub struct PtyManager {
     sessions: Arc<Mutex<HashMap<String, Arc<Session>>>>,
+}
+
+fn lock<T: ?Sized>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn now_ms() -> i64 {
@@ -86,16 +90,14 @@ impl PtyManager {
     }
 
     fn get(&self, id: &str) -> Result<Arc<Session>> {
-        self.sessions
-            .lock()
-            .unwrap()
+        lock(&self.sessions)
             .get(id)
             .cloned()
             .ok_or_else(|| PtyError::NotFound(id.into()))
     }
 
     pub fn is_running(&self, id: &str) -> bool {
-        self.sessions.lock().unwrap().contains_key(id)
+        lock(&self.sessions).contains_key(id)
     }
 
     pub fn spawn(
@@ -163,41 +165,62 @@ impl PtyManager {
             pid: session.pid,
             started_at: session.started_at,
         };
-        self.sessions
-            .lock()
-            .unwrap()
-            .insert(id.into(), session.clone());
+        let raced = {
+            let mut map = lock(&self.sessions);
+            let raced = map.contains_key(id);
+            if !raced {
+                map.insert(id.into(), session.clone());
+            }
+            raced
+        };
+        if raced {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(PtyError::AlreadyRunning(id.into()));
+        }
 
         let (done_tx, done_rx) = mpsc::channel::<()>();
-        std::thread::Builder::new()
+        let reader_thread = std::thread::Builder::new()
             .name(format!("pty-read-{id}"))
             .spawn(move || {
                 pump(reader, on_output);
                 let _ = done_tx.send(());
-            })
-            .map_err(|e| PtyError::Io(e.to_string()))?;
+            });
 
         let sessions = self.sessions.clone();
         let sid = id.to_string();
-        std::thread::Builder::new()
-            .name(format!("pty-wait-{id}"))
-            .spawn(move || {
-                let code = child.wait().ok().map(|s| s.exit_code());
-                drop(session.writer.lock().unwrap().take());
-                drop(session.master.lock().unwrap().take());
-                let _ = done_rx.recv_timeout(Duration::from_millis(800));
-                let killed = *session.killed.lock().unwrap();
-                sessions.lock().unwrap().remove(&sid);
-                on_exit(ExitInfo { code, killed });
-            })
-            .map_err(|e| PtyError::Io(e.to_string()))?;
+        let own = session.clone();
+        let wait_thread = reader_thread.and_then(|_| {
+            std::thread::Builder::new()
+                .name(format!("pty-wait-{id}"))
+                .spawn(move || {
+                    let code = child.wait().ok().map(|s| s.exit_code());
+                    drop(lock(&own.writer).take());
+                    drop(lock(&own.master).take());
+                    let _ = done_rx.recv_timeout(Duration::from_millis(800));
+                    let killed = *lock(&own.killed);
+                    let mut map = lock(&sessions);
+                    if map.get(&sid).is_some_and(|s| Arc::ptr_eq(s, &own)) {
+                        map.remove(&sid);
+                    }
+                    drop(map);
+                    on_exit(ExitInfo { code, killed });
+                })
+        });
+        if let Err(e) = wait_thread {
+            let _ = lock(&session.killer).kill();
+            lock(&self.sessions).remove(id);
+            drop(lock(&session.writer).take());
+            drop(lock(&session.master).take());
+            return Err(PtyError::Io(e.to_string()));
+        }
 
         Ok(info)
     }
 
     pub fn write(&self, id: &str, data: &[u8]) -> Result<()> {
         let s = self.get(id)?;
-        let mut w = s.writer.lock().unwrap();
+        let mut w = lock(&s.writer);
         let w = w.as_mut().ok_or_else(|| PtyError::NotFound(id.into()))?;
         w.write_all(data)
             .and_then(|_| w.flush())
@@ -206,7 +229,7 @@ impl PtyManager {
 
     pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<()> {
         let s = self.get(id)?;
-        let m = s.master.lock().unwrap();
+        let m = lock(&s.master);
         let m = m.as_ref().ok_or_else(|| PtyError::NotFound(id.into()))?;
         m.resize(size(cols, rows))
             .map_err(|e| PtyError::Io(e.to_string()))
@@ -214,13 +237,13 @@ impl PtyManager {
 
     pub fn kill(&self, id: &str) -> Result<()> {
         let s = self.get(id)?;
-        *s.killed.lock().unwrap() = true;
-        let result = s.killer.lock().unwrap().kill();
+        *lock(&s.killed) = true;
+        let result = lock(&s.killer).kill();
         match result {
             Ok(()) => Ok(()),
             Err(e) => {
-                drop(s.writer.lock().unwrap().take());
-                drop(s.master.lock().unwrap().take());
+                drop(lock(&s.writer).take());
+                drop(lock(&s.master).take());
                 match e.raw_os_error() {
                     Some(0) => Ok(()),
                     _ => Err(PtyError::Io(e.to_string())),
@@ -230,16 +253,14 @@ impl PtyManager {
     }
 
     pub fn kill_all(&self) {
-        let ids: Vec<String> = self.sessions.lock().unwrap().keys().cloned().collect();
+        let ids: Vec<String> = lock(&self.sessions).keys().cloned().collect();
         for id in ids {
             let _ = self.kill(&id);
         }
     }
 
     pub fn running(&self) -> Vec<RunningInfo> {
-        self.sessions
-            .lock()
-            .unwrap()
+        lock(&self.sessions)
             .iter()
             .map(|(id, s)| RunningInfo {
                 id: id.clone(),
@@ -250,16 +271,41 @@ impl PtyManager {
     }
 }
 
+const MAX_BATCH: usize = 512 * 1024;
+
 fn pump(mut reader: Box<dyn Read + Send>, on_output: OutputFn) {
+    let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(32);
+    let emitter = std::thread::Builder::new()
+        .name("pty-emit".into())
+        .spawn(move || {
+            while let Ok(mut batch) = rx.recv() {
+                while batch.len() < MAX_BATCH {
+                    match rx.try_recv() {
+                        Ok(more) => batch.extend_from_slice(&more),
+                        Err(_) => break,
+                    }
+                }
+                on_output(batch);
+            }
+        });
+    let Ok(emitter) = emitter else {
+        return;
+    };
     let mut buf = vec![0u8; 64 * 1024];
     loop {
         match reader.read(&mut buf) {
             Ok(0) => break,
-            Ok(n) => on_output(&buf[..n]),
+            Ok(n) => {
+                if tx.send(buf[..n].to_vec()).is_err() {
+                    break;
+                }
+            }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(_) => break,
         }
     }
+    drop(tx);
+    let _ = emitter.join();
 }
 
 #[cfg(all(test, unix))]
@@ -285,7 +331,7 @@ mod tests {
                 cols: 80,
                 rows: 24,
             },
-            Box::new(move |b| o.lock().unwrap().extend_from_slice(b)),
+            Box::new(move |b| o.lock().unwrap().extend_from_slice(&b)),
             Box::new(move |e| {
                 let _ = tx.send(e);
             }),

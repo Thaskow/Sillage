@@ -51,6 +51,7 @@ export const useUpdates = create<UpdatesState>((set, get) => ({
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
+      if (pending && pending !== update) void pending.close().catch(() => {});
       pending = update;
       set(
         update

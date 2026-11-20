@@ -304,6 +304,19 @@ describe("App", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
+  it("leaves shell editing keys to a focused terminal", async () => {
+    await boot();
+    const term = document.createElement("div");
+    term.className = "xterm";
+    term.tabIndex = 0;
+    document.body.appendChild(term);
+    fireEvent.keyDown(term, { key: "b", ctrlKey: true });
+    expect(screen.getByRole("tree")).toBeInTheDocument();
+    fireEvent.keyDown(term, { key: "P", ctrlKey: true, shiftKey: true });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    term.remove();
+  });
+
   it("jumps to pinned groups with Ctrl+2", async () => {
     const user = userEvent.setup();
     await boot();

@@ -1,10 +1,13 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { translateError } from "@/lib/i18n";
 
 export type Theme = "system" | "light" | "dark";
 export type Density = "compact" | "comfortable";
 export type Motion = "system" | "reduced" | "full";
+export type Language = "system" | "fr" | "en";
 
 export interface Settings {
+  language: Language;
   theme: Theme;
   density: Density;
   motion: Motion;
@@ -82,8 +85,8 @@ export interface IpcError {
 
 export function errorMessage(e: unknown): string {
   if (e && typeof e === "object" && "message" in e)
-    return String((e as IpcError).message);
-  return String(e);
+    return translateError(String((e as IpcError).message));
+  return translateError(String(e));
 }
 
 export const ipc = {

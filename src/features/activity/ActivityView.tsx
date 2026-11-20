@@ -1,10 +1,11 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Bot } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { EmptyState, StatusDot, Tooltip } from "@/design-system/primitives";
 import { GroupGlyph } from "@/design-system/group-visuals";
 import { useUi } from "@/app/ui-store";
-import { useWorkspace } from "@/features/workspace/store";
+import { groupName, useWorkspace } from "@/features/workspace/store";
 import {
   isAgentKind,
   useSessions,
@@ -54,9 +55,10 @@ export function ActivityView() {
   const allAgents = defs.filter((d) => isAgentKind(d.kind));
   if (!allAgents.length) {
     return (
-      <EmptyState icon={<Bot size={18} />} title="Aucun agent">
-        Lancez Claude Code depuis un groupe (Ctrl T) : il apparaîtra ici avec
-        son groupe, son état observé et sa durée.
+      <EmptyState icon={<Bot size={18} />} title={t("Aucun agent")}>
+        {t(
+          "Lancez Claude Code depuis un groupe (Ctrl T) : il apparaîtra ici avec son groupe, son état observé et sa durée.",
+        )}
       </EmptyState>
     );
   }
@@ -71,29 +73,30 @@ export function ActivityView() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[920px] px-8 py-8">
         <h1 className="text-[18px] font-semibold tracking-[-0.015em]">
-          Activité
+          {t("Activité")}
         </h1>
         <div className="mt-4 flex items-end gap-4">
           <p className="flex-1 text-[var(--fs-sm)] text-fg-3">
-            État observé du processus. L'activité détaillée (attente d'une
-            réponse, autorisation) arrivera avec les hooks Claude Code.
+            {t(
+              "État observé du processus. L'activité détaillée (attente d'une réponse, autorisation) arrivera avec les hooks Claude Code.",
+            )}
           </p>
           <select
             value={groupId}
             onChange={(e) => setGroupId(e.target.value)}
-            aria-label="Filtrer par groupe"
+            aria-label={t("Filtrer par groupe")}
             className="h-[var(--row)] rounded-md border border-line-strong bg-raised px-2 text-fg outline-none focus:border-accent"
           >
-            <option value="">Tous les groupes</option>
+            <option value="">{t("Tous les groupes")}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
-                {g.name}
+                {groupName(g)}
               </option>
             ))}
           </select>
           <div
             role="radiogroup"
-            aria-label="État"
+            aria-label={t("État")}
             className="flex rounded-md border border-line bg-sunken p-0.5"
           >
             {(
@@ -115,7 +118,7 @@ export function ActivityView() {
                     : "text-fg-2 hover:text-fg",
                 )}
               >
-                {l}
+                {t(l)}
               </button>
             ))}
           </div>
@@ -149,13 +152,13 @@ export function ActivityView() {
                     </span>
                     <span className="flex items-center gap-1.5 text-[var(--fs-sm)] text-fg-3">
                       {providerLabel[d.kind]} ·{" "}
-                      {account ? account.name : "compte habituel"} · {label}
+                      {account ? account.name : t("compte habituel")} · {label}
                     </span>
                   </span>
                   {g && (
                     <span className="flex max-w-48 items-center gap-1.5 text-[var(--fs-sm)] text-fg-2">
                       <GroupGlyph icon={g.icon} color={g.color} size={16} />
-                      <span className="truncate">{g.name}</span>
+                      <span className="truncate">{groupName(g)}</span>
                     </span>
                   )}
                   <span className="w-20 text-right text-[var(--fs-sm)] text-fg-3 tabular-nums">
@@ -175,7 +178,7 @@ export function ActivityView() {
           })}
           {!agents.length && (
             <li className="px-4 py-6 text-center text-fg-3">
-              Aucun agent pour ce filtre.
+              {t("Aucun agent pour ce filtre.")}
             </li>
           )}
         </ul>

@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { Category, Group } from "@/lib/ipc";
 
 export interface Section {
@@ -20,7 +21,7 @@ export function buildSections(
   if (pinned.length)
     sections.push({
       key: "pinned",
-      title: "Épinglés",
+      title: t("Épinglés"),
       category: null,
       groups: pinned,
     });
@@ -35,7 +36,7 @@ export function buildSections(
   );
   sections.push({
     key: "loose",
-    title: "Groupes",
+    title: t("Groupes"),
     category: null,
     groups: loose,
   });
@@ -43,7 +44,7 @@ export function buildSections(
   if (archived.length)
     sections.push({
       key: "archived",
-      title: "Archivés",
+      title: t("Archivés"),
       category: null,
       groups: archived,
     });

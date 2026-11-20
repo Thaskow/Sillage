@@ -1,8 +1,10 @@
+import { t } from "@/lib/i18n";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { Channel } from "@tauri-apps/api/core";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -21,6 +23,7 @@ interface Host {
   opened: boolean;
   observer: ResizeObserver | null;
   resizeTimer: number | undefined;
+  gpu: WebglAddon | null;
 }
 
 const hosts = new Map<string, Host>();
@@ -60,6 +63,16 @@ function themeFromTokens(): ITheme {
   };
 }
 
+async function openLink(uri: string) {
+  if (!/^https?:\/\//i.test(uri)) return;
+  const ok = await askConfirm({
+    title: t("Ouvrir ce lien ?"),
+    description: uri,
+    confirmLabel: t("Ouvrir dans le navigateur"),
+  });
+  if (ok) openUrl(uri).catch(() => {});
+}
+
 function create(id: string): Host {
   const s = useSettings.getState().settings;
   const term = new Terminal({
@@ -75,6 +88,7 @@ function create(id: string): Host {
     rightClickSelectsWord: false,
     theme: themeFromTokens(),
     windowsPty: { backend: "conpty" },
+    linkHandler: { activate: (_e, uri) => void openLink(uri) },
   });
   const fit = new FitAddon();
   const search = new SearchAddon();
@@ -83,17 +97,7 @@ function create(id: string): Host {
   term.loadAddon(search);
   term.loadAddon(unicode);
   term.unicode.activeVersion = "11";
-  term.loadAddon(
-    new WebLinksAddon(async (_e, uri) => {
-      if (!/^https?:\/\//i.test(uri)) return;
-      const ok = await askConfirm({
-        title: "Ouvrir ce lien ?",
-        description: uri,
-        confirmLabel: "Ouvrir dans le navigateur",
-      });
-      if (ok) openUrl(uri).catch(() => {});
-    }),
-  );
+  term.loadAddon(new WebLinksAddon((_e, uri) => void openLink(uri)));
 
   term.attachCustomKeyEventHandler((e) => {
     if (
@@ -156,6 +160,7 @@ function create(id: string): Host {
     opened: false,
     observer: null,
     resizeTimer: undefined,
+    gpu: null,
   };
   hosts.set(id, host);
   return host;
@@ -172,6 +177,31 @@ const CONTROL =
 
 function hasVisibleText(chunk: string): boolean {
   return chunk.replace(CONTROL, "").length > 0;
+}
+
+let gpuAvailable = true;
+
+function enableGpu(h: Host) {
+  if (h.gpu || !gpuAvailable) return;
+  try {
+    const gpu = new WebglAddon();
+    gpu.onContextLoss(() => disableGpu(h));
+    h.term.loadAddon(gpu);
+    h.gpu = gpu;
+  } catch {
+    // no WebGL2: xterm keeps its DOM renderer
+    gpuAvailable = false;
+  }
+}
+
+function disableGpu(h: Host) {
+  const gpu = h.gpu;
+  h.gpu = null;
+  try {
+    gpu?.dispose();
+  } catch {
+    return;
+  }
 }
 
 function safeFit(h: Host) {
@@ -192,6 +222,7 @@ export const terminals = {
       h.term.open(h.el);
       h.opened = true;
     }
+    enableGpu(h);
     h.observer?.disconnect();
     h.observer = new ResizeObserver(() => {
       window.clearTimeout(h.resizeTimer);
@@ -209,6 +240,7 @@ export const terminals = {
     if (!h) return;
     h.observer?.disconnect();
     h.observer = null;
+    disableGpu(h);
     h.el.remove();
   },
 
@@ -258,6 +290,7 @@ export const terminals = {
       const cols = h.term.cols;
       const rows = h.term.rows;
       const info = await sessionsIpc.start(id, cols, rows, channel);
+      if (useSessions.getState().runtime[id]?.state !== "starting") return;
       setRuntime(id, { state: "running", startedAt: info.startedAt });
       safeFit(h);
       if (h.term.cols !== cols || h.term.rows !== rows) {
@@ -277,9 +310,12 @@ export const terminals = {
   },
 
   onExit(id: string, code: number | null, killed: boolean) {
+    if (!useSessions.getState().defs.some((d) => d.id === id)) return;
     const h = hosts.get(id);
-    const label = killed ? "arrêté" : `terminé (code ${code ?? "?"})`;
-    h?.term.write(`\r\n\x1b[2m— processus ${label} —\x1b[0m\r\n`);
+    const label = killed
+      ? t("— processus arrêté —")
+      : t("— processus terminé (code {code}) —", { code: code ?? "?" });
+    h?.term.write(`\r\n\x1b[2m${label}\x1b[0m\r\n`);
     useSessions.getState().setRuntime(id, {
       state: "exited",
       exitCode: code,
@@ -292,6 +328,8 @@ export const terminals = {
     const h = hosts.get(id);
     if (!h) return;
     h.observer?.disconnect();
+    window.clearTimeout(h.resizeTimer);
+    disableGpu(h);
     h.term.dispose();
     h.el.remove();
     hosts.delete(id);

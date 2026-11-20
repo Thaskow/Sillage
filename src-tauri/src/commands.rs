@@ -1,7 +1,9 @@
+use std::sync::PoisonError;
+
 use serde::Serialize;
 use sillage_core::settings::Settings;
 use sillage_core::workspace::{Category, Group, GroupPatch, NewGroup};
-use sillage_core::{Error, OpenOutcome, Result, Store};
+use sillage_core::{OpenOutcome, Result, Store};
 use tauri::State;
 
 use crate::AppState;
@@ -10,11 +12,7 @@ pub(crate) fn with_store<T>(
     state: &State<AppState>,
     f: impl FnOnce(&mut Store) -> Result<T>,
 ) -> Result<T> {
-    let mut store = state
-        .store
-        .lock()
-        .map_err(|_| Error::Invalid("accès concurrent à la base interrompu".into()))?;
-    f(&mut store)
+    f(&mut state.store.lock().unwrap_or_else(PoisonError::into_inner))
 }
 
 #[derive(Serialize)]
@@ -72,8 +70,15 @@ pub fn update_group(state: State<AppState>, id: String, patch: GroupPatch) -> Re
 }
 
 #[tauri::command]
-pub fn delete_group(state: State<AppState>, id: String) -> Result<()> {
-    with_store(&state, |s| s.delete_group(&id))
+pub async fn delete_group(state: State<'_, AppState>, id: String) -> Result<()> {
+    let sessions = with_store(&state, |s| s.sessions())?;
+    with_store(&state, |s| s.delete_group(&id))?;
+    for d in sessions.iter().filter(|d| d.group_id == id) {
+        if state.pty.is_running(&d.id) {
+            let _ = state.pty.kill(&d.id);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

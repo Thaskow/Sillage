@@ -15,6 +15,20 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::commands::with_store;
 use crate::AppState;
 
+fn agent_files(state: &AppState, id: &str) -> (PathBuf, PathBuf) {
+    let dir = state.data_dir.join("agents");
+    (
+        dir.join(format!("{id}.json")),
+        dir.join(format!("{id}.settings.json")),
+    )
+}
+
+pub(crate) fn forget_agent_files(state: &AppState, id: &str) {
+    let (record, settings) = agent_files(state, id);
+    let _ = std::fs::remove_file(record);
+    let _ = std::fs::remove_file(settings);
+}
+
 fn pty_err(e: sillage_pty::PtyError) -> Error {
     Error::Invalid(e.to_string())
 }
@@ -59,7 +73,7 @@ pub struct KindInfo {
 }
 
 #[tauri::command]
-pub fn available_kinds() -> Vec<KindInfo> {
+pub async fn available_kinds() -> Vec<KindInfo> {
     SessionKind::ALL
         .into_iter()
         .filter(|k| *k != SessionKind::Custom)
@@ -93,11 +107,13 @@ pub fn move_session(state: State<AppState>, id: String, group_id: String) -> Res
 }
 
 #[tauri::command]
-pub fn delete_session(state: State<AppState>, id: String) -> Result<()> {
+pub async fn delete_session(state: State<'_, AppState>, id: String) -> Result<()> {
     if state.pty.is_running(&id) {
         state.pty.kill(&id).map_err(pty_err)?;
     }
-    with_store(&state, |s| s.delete_session(&id))
+    with_store(&state, |s| s.delete_session(&id))?;
+    forget_agent_files(&state, &id);
+    Ok(())
 }
 
 #[derive(Clone, Serialize)]
@@ -109,16 +125,33 @@ struct ExitEvent {
 }
 
 #[tauri::command]
-pub fn start_session(
+pub async fn start_session(
     app: AppHandle,
-    state: State<AppState>,
+    state: State<'_, AppState>,
     id: String,
     cols: u16,
     rows: u16,
     output: Channel<InvokeResponseBody>,
 ) -> Result<RunningInfo> {
-    let def = with_store(&state, |s| s.session(&id))?;
-    let (program, args) = match def.kind {
+    let mut def = with_store(&state, |s| s.session(&id))?;
+    let (record, hook_settings) = agent_files(&state, &id);
+    if def.kind == SessionKind::Claude {
+        if let Some(current) = resume::recorded_claude_session(&record) {
+            if def.agent_session_id.as_deref() != Some(current.as_str()) {
+                with_store(&state, |s| {
+                    s.set_agent_session(&id, Some(&current), def.agent_started_at)
+                })?;
+                def.agent_session_id = Some(current);
+            }
+        }
+    }
+    let cwd = def
+        .cwd
+        .clone()
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
+    let agent = agent_launch(&state, &def, cwd.as_ref())?;
+    let (program, mut args) = match def.kind {
         SessionKind::Custom => {
             let cmd = def.command.clone().unwrap_or_default();
             (PathBuf::from(cmd.trim()), def.args.clone())
@@ -132,19 +165,19 @@ pub fn start_session(
             })?;
             let mut args = kind.default_args();
             args.extend(def.args.clone());
-            launch_program(&found, args)
+            (found, args)
         }
     };
-    let cwd = def
-        .cwd
-        .clone()
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
-    let mut args = args;
-    let agent = agent_launch(&state, &def, cwd.as_ref())?;
     if let Some(a) = &agent {
         args.extend(a.args.iter().cloned());
     }
+    if def.kind == SessionKind::Claude {
+        std::fs::create_dir_all(state.data_dir.join("agents"))?;
+        std::fs::write(&hook_settings, resume::claude_hook_settings(&record))?;
+        args.push("--settings".into());
+        args.push(hook_settings.display().to_string());
+    }
+    let (program, args) = launch_program(&program, args)?;
     let spec = LaunchSpec {
         program,
         args,
@@ -161,7 +194,7 @@ pub fn start_session(
             &id,
             spec,
             Box::new(move |bytes| {
-                let _ = output.send(InvokeResponseBody::Raw(bytes.to_vec()));
+                let _ = output.send(InvokeResponseBody::Raw(bytes));
             }),
             Box::new(move |e| {
                 let st = app.state::<AppState>();
@@ -230,7 +263,9 @@ pub fn reset_agent_session(state: State<AppState>, id: String) -> Result<()> {
             "arrêtez la session avant de repartir d'une nouvelle conversation".into(),
         ));
     }
-    with_store(&state, |s| s.set_agent_session(&id, None, None))
+    with_store(&state, |s| s.set_agent_session(&id, None, None))?;
+    forget_agent_files(&state, &id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -244,7 +279,7 @@ pub fn resize_session(state: State<AppState>, id: String, cols: u16, rows: u16) 
 }
 
 #[tauri::command]
-pub fn kill_session(state: State<AppState>, id: String) -> Result<()> {
+pub async fn kill_session(state: State<'_, AppState>, id: String) -> Result<()> {
     state.pty.kill(&id).map_err(pty_err)
 }
 

@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { create } from "zustand";
 import {
   errorMessage,
@@ -30,7 +31,7 @@ interface SessionsState {
   create: (s: NewSession) => Promise<SessionDef | null>;
   rename: (id: string, title: string) => Promise<void>;
   move: (id: string, groupId: string) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  remove: (id: string) => Promise<boolean>;
   setProfile: (id: string, profileId: string | null) => Promise<void>;
   resetAgent: (id: string) => Promise<void>;
   setRuntime: (id: string, r: Runtime) => void;
@@ -72,7 +73,7 @@ export const useSessions = create<SessionsState>((set) => ({
       }));
       return def;
     } catch (e) {
-      toast.error("Session non créée", errorMessage(e));
+      toast.error(t("Session non créée"), errorMessage(e));
       return null;
     }
   },
@@ -82,7 +83,7 @@ export const useSessions = create<SessionsState>((set) => ({
       const def = await sessionsIpc.rename(id, title);
       set((st) => ({ defs: st.defs.map((d) => (d.id === id ? def : d)) }));
     } catch (e) {
-      toast.error("Renommage impossible", errorMessage(e));
+      toast.error(t("Renommage impossible"), errorMessage(e));
     }
   },
 
@@ -91,7 +92,7 @@ export const useSessions = create<SessionsState>((set) => ({
       const def = await sessionsIpc.move(id, groupId);
       set((st) => ({ defs: st.defs.map((d) => (d.id === id ? def : d)) }));
     } catch (e) {
-      toast.error("Déplacement impossible", errorMessage(e));
+      toast.error(t("Déplacement impossible"), errorMessage(e));
     }
   },
 
@@ -106,7 +107,7 @@ export const useSessions = create<SessionsState>((set) => ({
         ),
       }));
     } catch (e) {
-      toast.error("Changement de compte impossible", errorMessage(e));
+      toast.error(t("Changement de compte impossible"), errorMessage(e));
     }
   },
 
@@ -120,9 +121,9 @@ export const useSessions = create<SessionsState>((set) => ({
             : d,
         ),
       }));
-      toast.info("Le prochain lancement ouvrira une nouvelle conversation");
+      toast.info(t("Le prochain lancement ouvrira une nouvelle conversation"));
     } catch (e) {
-      toast.error("Action impossible", errorMessage(e));
+      toast.error(t("Action impossible"), errorMessage(e));
     }
   },
 
@@ -137,10 +138,15 @@ export const useSessions = create<SessionsState>((set) => ({
           runtime,
           focusedId: st.focusedId === id ? null : st.focusedId,
           maximizedId: st.maximizedId === id ? null : st.maximizedId,
+          opening: Object.fromEntries(
+            Object.entries(st.opening).filter(([k]) => k !== id),
+          ),
         };
       });
+      return true;
     } catch (e) {
-      toast.error("Fermeture impossible", errorMessage(e));
+      toast.error(t("Fermeture impossible"), errorMessage(e));
+      return false;
     }
   },
 

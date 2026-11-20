@@ -1,3 +1,4 @@
+import { locale, plural, t, translateError } from "@/lib/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { cx } from "@/lib/cx";
@@ -13,24 +14,34 @@ import { AccountAvatar } from "@/features/profiles/ProfileBadge";
 import { providerLabel, useProfiles } from "@/features/profiles/store";
 import { useSettings } from "@/features/settings/store";
 
-const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+const formats = new Map<string, Intl.NumberFormat>();
+
+function nf(n: number): string {
+  const loc = locale();
+  let f = formats.get(loc);
+  if (!f) {
+    f = new Intl.NumberFormat(loc, { maximumFractionDigits: 1 });
+    formats.set(loc, f);
+  }
+  return f.format(n);
+}
 
 export function formatTokens(n: number): string {
   if (n < 1_000) return String(n);
-  if (n < 1_000_000) return `${nf.format(n / 1_000)} k`;
-  if (n < 1_000_000_000) return `${nf.format(n / 1_000_000)} M`;
-  return `${nf.format(n / 1_000_000_000)} Md`;
+  if (n < 1_000_000) return `${nf(n / 1_000)} k`;
+  if (n < 1_000_000_000) return `${nf(n / 1_000_000)} M`;
+  return t("{n} Md", { n: nf(n / 1_000_000_000) });
 }
 
 const total = (t: Tokens) => t.input + t.output + t.cacheRead + t.cacheWrite;
 
 function ago(ms: number, now: number): string {
   const m = Math.max(0, Math.round((now - ms) / 60_000));
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
+  if (m < 1) return t("à l'instant");
+  if (m < 60) return t("il y a {n} min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 48) return `il y a ${h} h`;
-  return `il y a ${Math.floor(h / 24)} j`;
+  if (h < 48) return t("il y a {n} h", { n: h });
+  return t("il y a {n} j", { n: Math.floor(h / 24) });
 }
 
 function inTime(ms: number, now: number): string {
@@ -38,15 +49,16 @@ function inTime(ms: number, now: number): string {
   if (m < 60) return `${m} min`;
   const h = Math.floor(m / 60);
   if (h < 48) return `${h} h ${String(m % 60).padStart(2, "0")}`;
-  return `${Math.floor(h / 24)} j`;
+  return t("{n} j", { n: Math.floor(h / 24) });
 }
 
 function windowLabel(w: LimitWindow, fallback: string): string {
   const m = w.windowMinutes;
   if (!m) return fallback;
-  if (m % 1440 === 0) return m === 10080 ? "Semaine" : `${m / 1440} jours`;
-  if (m % 60 === 0) return `Fenêtre ${m / 60} h`;
-  return `Fenêtre ${m} min`;
+  if (m % 1440 === 0)
+    return m === 10080 ? t("Semaine") : t("{n} jours", { n: m / 1440 });
+  if (m % 60 === 0) return t("Fenêtre {n} h", { n: m / 60 });
+  return t("Fenêtre {n} min", { n: m });
 }
 
 function startOfDay(now: number): number {
@@ -63,11 +75,11 @@ export function UsagePanel() {
 
   const refresh = useCallback(async () => {
     setBusy(true);
-    const t = Date.now();
+    const at = Date.now();
     try {
-      setData(await profilesIpc.usage(t, startOfDay(t)));
+      setData(await profilesIpc.usage(at, startOfDay(at)));
       setError(null);
-      setNow(t);
+      setNow(at);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -77,17 +89,17 @@ export function UsagePanel() {
 
   useEffect(() => {
     void refresh();
-    const t = window.setInterval(() => void refresh(), 5 * 60_000);
-    return () => window.clearInterval(t);
+    const timer = window.setInterval(() => void refresh(), 5 * 60_000);
+    return () => window.clearInterval(timer);
   }, [refresh]);
 
   return (
     <div>
       <div className="flex items-start gap-4">
         <p className="flex-1 text-[var(--fs-sm)] text-fg-3">
-          Calculé sur cette machine à partir de l'historique que Claude Code et
-          Codex écrivent dans le dossier de chaque compte (7 derniers jours).
-          Sillage n'en lit que les compteurs de jetons ; rien n'est envoyé.
+          {t(
+            "Calculé sur cette machine à partir de l'historique que Claude Code et Codex écrivent dans le dossier de chaque compte (7 derniers jours). Sillage n'en lit que les compteurs de jetons ; cet historique n'est envoyé nulle part.",
+          )}
         </p>
         <Button onClick={() => void refresh()} disabled={busy}>
           {busy ? (
@@ -95,19 +107,19 @@ export function UsagePanel() {
           ) : (
             <RefreshCw size={13} />
           )}
-          Actualiser
+          {t("Actualiser")}
         </Button>
       </div>
       {error && <p className="mt-4 text-err">{error}</p>}
       {!data && !error && (
         <p className="mt-6 flex items-center gap-2 text-fg-3">
-          <Loader2 size={14} className="animate-spin" /> Lecture de
-          l'historique…
+          <Loader2 size={14} className="animate-spin" />{" "}
+          {t("Lecture de l'historique…")}
         </p>
       )}
       {data && !data.length && (
         <p className="mt-6 text-fg-3">
-          Aucun dossier Claude Code ou Codex trouvé sur cette machine.
+          {t("Aucun dossier Claude Code ou Codex trouvé sur cette machine.")}
         </p>
       )}
       <div className="mt-4 flex flex-col gap-4">
@@ -124,13 +136,15 @@ function NoLimits({ account }: { account: AccountUsage }) {
   if (account.provider === "codex")
     return (
       <p className="text-[var(--fs-sm)] text-fg-3 sm:col-span-2">
-        Limites du forfait : Codex ne les a pas encore relevées pour ce compte.
+        {t(
+          "Limites du forfait : Codex ne les a pas encore relevées pour ce compte.",
+        )}
       </p>
     );
   if (!enabled)
     return (
       <p className="text-[var(--fs-sm)] text-fg-3 sm:col-span-2">
-        Limites du forfait : relevé désactivé dans Comptes et réglages.
+        {t("Limites du forfait : relevé désactivé dans Comptes et réglages.")}
       </p>
     );
 
@@ -141,9 +155,10 @@ function NoLimits({ account }: { account: AccountUsage }) {
         account.limitsError ? "text-wait" : "text-fg-3",
       )}
     >
-      Limites du forfait :{" "}
-      {account.limitsError ??
-        "Anthropic n'a renvoyé aucune limite pour ce compte"}
+      {t("Limites du forfait :")}{" "}
+      {account.limitsError
+        ? translateError(account.limitsError)
+        : t("Anthropic n'a renvoyé aucune limite pour ce compte")}
       .
     </p>
   );
@@ -158,7 +173,10 @@ function UsageCard({ account, now }: { account: AccountUsage; now: number }) {
   const top = u.models[0] ? total(u.models[0].tokens) : 0;
   return (
     <section
-      aria-label={`Consommation ${profile?.name ?? "compte habituel"} ${providerLabel[account.provider]}`}
+      aria-label={t("Consommation {name} {provider}", {
+        name: profile?.name ?? t("compte habituel"),
+        provider: providerLabel[account.provider],
+      })}
       className="rounded-lg border border-line bg-surface"
     >
       <header className="flex items-center gap-3 border-b border-line px-4 py-3">
@@ -166,7 +184,7 @@ function UsageCard({ account, now }: { account: AccountUsage; now: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium">
-              {profile?.name ?? "Compte habituel"}
+              {profile?.name ?? t("Compte habituel")}
             </span>
             <span className="rounded-[4px] bg-sunken px-1.5 text-[10.5px] leading-[18px] text-fg-3">
               {providerLabel[account.provider]}
@@ -178,12 +196,18 @@ function UsageCard({ account, now }: { account: AccountUsage; now: number }) {
         </div>
         <div className="text-right text-[var(--fs-sm)] text-fg-3">
           <div>
-            {u.sessions} session{u.sessions > 1 ? "s" : ""} sur 7 jours
+            {plural(
+              u.sessions,
+              "{n} session sur 7 jours",
+              "{n} sessions sur 7 jours",
+            )}
           </div>
           <div>
             {u.lastActivity
-              ? `Dernière activité ${ago(u.lastActivity, now)}`
-              : "Aucune activité récente"}
+              ? t("Dernière activité {when}", {
+                  when: ago(u.lastActivity, now),
+                })
+              : t("Aucune activité récente")}
           </div>
         </div>
       </header>
@@ -193,24 +217,25 @@ function UsageCard({ account, now }: { account: AccountUsage; now: number }) {
           <>
             {u.limits.primary && (
               <Gauge
-                label={windowLabel(u.limits.primary, "Fenêtre courte")}
+                label={windowLabel(u.limits.primary, t("Fenêtre courte"))}
                 w={u.limits.primary}
                 now={now}
               />
             )}
             {u.limits.secondary && (
               <Gauge
-                label={windowLabel(u.limits.secondary, "Fenêtre longue")}
+                label={windowLabel(u.limits.secondary, t("Fenêtre longue"))}
                 w={u.limits.secondary}
                 now={now}
               />
             )}
             <p className="text-[11px] text-fg-3 sm:col-span-2">
-              Limites du forfait relevées{" "}
-              {account.provider === "claude"
-                ? "auprès d'Anthropic"
-                : "par Codex"}{" "}
-              {ago(u.limits.observedAt, now)}.
+              {t(
+                account.provider === "claude"
+                  ? "Limites du forfait relevées auprès d'Anthropic {when}."
+                  : "Limites du forfait relevées par Codex {when}.",
+                { when: ago(u.limits.observedAt, now) },
+              )}
             </p>
           </>
         ) : (
@@ -225,21 +250,24 @@ function UsageCard({ account, now }: { account: AccountUsage; now: number }) {
             ["Aujourd'hui", u.today],
             ["7 jours", u.week],
           ] as const
-        ).map(([label, t], i) => (
+        ).map(([label, tk], i) => (
           <div
             key={label}
             className={cx("px-4 py-3", i > 0 && "border-l border-line")}
           >
             <div className="text-[11px] tracking-[0.04em] text-fg-3 uppercase">
-              {label}
+              {t(label)}
             </div>
             <div className="mt-0.5 text-[18px] font-semibold tabular-nums">
-              {formatTokens(total(t))}
+              {formatTokens(total(tk))}
             </div>
             <div className="text-[11px] text-fg-3 tabular-nums">
-              entrée {formatTokens(t.input)} · sortie {formatTokens(t.output)}
-              {t.cacheRead + t.cacheWrite > 0 &&
-                ` · cache ${formatTokens(t.cacheRead + t.cacheWrite)}`}
+              {t("entrée {input} · sortie {output}", {
+                input: formatTokens(tk.input),
+                output: formatTokens(tk.output),
+              })}
+              {tk.cacheRead + tk.cacheWrite > 0 &&
+                ` · cache ${formatTokens(tk.cacheRead + tk.cacheWrite)}`}
             </div>
           </div>
         ))}
@@ -319,10 +347,12 @@ function Gauge({
       </div>
       <div className="mt-1 text-[11px] text-fg-3">
         {w.resetsAt === null
-          ? "Réinitialisation : inconnue"
+          ? t("Réinitialisation : inconnue")
           : reset
-            ? "Fenêtre réinitialisée depuis le relevé"
-            : `Réinitialisation dans ${inTime(w.resetsAt, now)}`}
+            ? t("Fenêtre réinitialisée depuis le relevé")
+            : t("Réinitialisation dans {when}", {
+                when: inTime(w.resetsAt, now),
+              })}
       </div>
     </div>
   );

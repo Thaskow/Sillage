@@ -1,6 +1,7 @@
+import { t } from "@/lib/i18n";
 import { create } from "zustand";
 import { errorMessage, ipc, type Settings } from "@/lib/ipc";
-import { defaultSettings } from "@/lib/mock-backend";
+import { defaultSettings } from "./defaults";
 import { toast } from "@/design-system/toast";
 
 interface SettingsState {
@@ -9,6 +10,8 @@ interface SettingsState {
   load: () => Promise<void>;
   update: (patch: Partial<Settings>) => Promise<void>;
 }
+
+let saveSeq = 0;
 
 export const useSettings = create<SettingsState>((set, get) => ({
   settings: defaultSettings,
@@ -20,12 +23,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
   update: async (patch) => {
     const previous = get().settings;
     const next = { ...previous, ...patch };
+    const seq = ++saveSeq;
     set({ settings: next });
     try {
-      set({ settings: await ipc.saveSettings(next) });
+      const saved = await ipc.saveSettings(next);
+      if (seq === saveSeq) set({ settings: saved });
     } catch (e) {
-      set({ settings: previous });
-      toast.error("Paramètres non enregistrés", errorMessage(e));
+      if (seq === saveSeq) set({ settings: previous });
+      toast.error(t("Paramètres non enregistrés"), errorMessage(e));
     }
   },
 }));
