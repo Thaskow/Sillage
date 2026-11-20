@@ -148,7 +148,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="anim-fade flex h-full flex-col items-center justify-center px-8 text-center">
+    <div className="anim-fade flex h-full w-full flex-col items-center justify-center px-8 text-center">
       <div className="mb-4 flex size-11 items-center justify-center rounded-xl border border-line bg-surface text-fg-3">
         {icon}
       </div>
