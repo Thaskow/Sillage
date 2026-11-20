@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { Provider } from "@/lib/ipc";
 import { Switch } from "@/design-system/primitives";
 import { useSessions } from "@/features/sessions/store";
@@ -36,11 +37,12 @@ export function AgentSettings() {
                   className="truncate font-mono text-[11px] text-fg-3"
                   title={path ?? undefined}
                 >
-                  {path ?? "Introuvable : installez-le ou ajoutez-le au PATH"}
+                  {path ??
+                    t("Introuvable : installez-le ou ajoutez-le au PATH")}
                 </div>
               </div>
               <label className="flex items-center gap-2 text-[var(--fs-sm)] text-fg-2">
-                Compte par défaut
+                {t("Compte par défaut")}
                 <select
                   value={
                     accounts.some((a) => a.id === current)
@@ -50,7 +52,7 @@ export function AgentSettings() {
                   onChange={(e) => update({ [key[p]]: e.target.value || null })}
                   className="h-[var(--row)] rounded-md border border-line-strong bg-raised px-2 text-fg outline-none focus:border-accent"
                 >
-                  <option value="">Compte habituel</option>
+                  <option value="">{t("Compte habituel")}</option>
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -64,23 +66,24 @@ export function AgentSettings() {
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="font-medium">
-              Relever les limites du forfait Claude
+              {t("Relever les limites du forfait Claude")}
             </div>
             <div className="text-[var(--fs-sm)] text-fg-3">
-              Lit le jeton de connexion de chaque compte Claude uniquement pour
-              interroger api.anthropic.com (jauges 5 h et semaine, comme
-              /usage). Le jeton n'est ni affiché, ni copié, ni envoyé ailleurs.
+              {t(
+                "Lit le jeton de connexion de chaque compte Claude uniquement pour interroger api.anthropic.com (jauges 5 h et semaine, comme /usage). Le jeton n'est ni affiché, ni copié, ni envoyé ailleurs.",
+              )}
             </div>
           </div>
           <Switch
             checked={settings.claudeLimitsEnabled}
             onChange={(claudeLimitsEnabled) => update({ claudeLimitsEnabled })}
-            label="Relever les limites du forfait Claude"
+            label={t("Relever les limites du forfait Claude")}
           />
         </div>
         <p className="px-4 py-2.5 text-[var(--fs-sm)] text-fg-3">
-          Le compte par défaut d'un groupe (dans ses réglages) passe avant
-          celui-ci. Le menu Agent permet toujours de choisir un autre compte.
+          {t(
+            "Le compte par défaut d'un groupe (dans ses réglages) passe avant celui-ci. Le menu Agent permet toujours de choisir un autre compte.",
+          )}
         </p>
       </div>
       <AccountsSection />

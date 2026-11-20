@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { t, useLang } from "@/lib/i18n";
 import * as RTooltip from "@radix-ui/react-tooltip";
 import { TitleBar } from "./shell/TitleBar";
 import { useUi } from "./ui-store";
@@ -23,27 +24,30 @@ export function App() {
   const view = useUi((s) => s.view);
   const sidebarVisible = useSettings((s) => s.settings.sidebarVisible);
   const savedWidth = useSettings((s) => s.settings.sidebarWidth);
+  const lang = useLang((s) => s.lang);
 
   return (
     <RTooltip.Provider delayDuration={350} skipDelayDuration={150}>
-      <div className="flex h-full flex-col">
-        <TitleBar />
-        <div className="flex min-h-0 flex-1">
-          {sidebarVisible && <ResizableSidebar width={savedWidth} />}
-          <main className="min-w-0 flex-1 bg-bg">
-            {view === "workspace" && <WorkspaceView />}
-            {view === "agents" && <AgentsView />}
-            {view === "activity" && <ActivityView />}
-            {view === "history" && <HistoryView />}
-            {view === "settings" && <SettingsView />}
-          </main>
+      <Fragment key={lang}>
+        <div className="flex h-full flex-col">
+          <TitleBar />
+          <div className="flex min-h-0 flex-1">
+            {sidebarVisible && <ResizableSidebar width={savedWidth} />}
+            <main className="min-w-0 flex-1 bg-bg">
+              {view === "workspace" && <WorkspaceView />}
+              {view === "agents" && <AgentsView />}
+              {view === "activity" && <ActivityView />}
+              {view === "history" && <HistoryView />}
+              {view === "settings" && <SettingsView />}
+            </main>
+          </div>
         </div>
-      </div>
-      <GroupDialog />
-      <UpdateDialog />
-      <CommandPalette />
-      <ConfirmHost />
-      <Toaster />
+        <GroupDialog />
+        <UpdateDialog />
+        <CommandPalette />
+        <ConfirmHost />
+        <Toaster />
+      </Fragment>
     </RTooltip.Provider>
   );
 }
@@ -59,7 +63,7 @@ function ResizableSidebar({ width }: { width: number }) {
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Largeur de la barre latérale"
+        aria-label={t("Largeur de la barre latérale")}
         aria-valuenow={live}
         aria-valuemin={200}
         aria-valuemax={420}

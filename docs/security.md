@@ -8,7 +8,7 @@
 | Aucune télémétrie, analytics ni crash reporting | Aucun plugin Tauri `http` ; les seules requêtes HTTP partent du code Rust vers deux destinations : GitHub (mises à jour, `tauri-plugin-updater`) et `api.anthropic.com` (limites du forfait Claude, `src-tauri/src/accounts.rs`). Le WebView reste limité par la CSP `connect-src ipc:`. |
 | Mises à jour signées, jamais installées sans accord | `plugins.updater` dans `src-tauri/tauri.conf.json` : `latest.json` des Releases GitHub, signature minisign vérifiée avec la clé publique intégrée ; l'installation attend un clic (`src/features/updates`). Recherche automatique désactivable. Voir [releasing.md](releasing.md). |
 | Aucun port réseau ouvert | L'IPC Tauri passe par le protocole personnalisé de WebView2 ; le serveur Vite n'existe qu'en développement (`127.0.0.1`). |
-| Permissions minimales du frontend | `src-tauri/capabilities/default.json` : uniquement le contrôle de la fenêtre et les commandes de l'app. |
+| Permissions minimales du frontend | `src-tauri/capabilities/default.json` : contrôle de la fenêtre, presse-papiers (copier/coller du terminal), ouverture de liens `http(s)` après confirmation (liens détectés et liens OSC 8, `src/features/sessions/terminal-registry.ts`) et commandes de l'app. |
 | Pas de droits administrateur | Installateur NSIS `currentUser`. |
 
 Connexions sortantes de Sillage : la recherche de mises à jour (GitHub, au démarrage puis toutes les 6 heures,
@@ -22,7 +22,7 @@ Claude Code, `CODEX_HOME` pour Codex). La connexion se fait dans l'outil, par sa
 ne copie ni ne transmet aucun jeton : pour afficher l'état d'un compte, il lit seulement `oauthAccount.emailAddress`
 et `oauthAccount.organizationName` dans `.claude.json`, et vérifie la présence (sans lecture) de `.credentials.json`
 ou `auth.json` (`crates/sillage-core/src/profiles.rs`, `account_status`). Retirer un compte ne supprime que les
-dossiers créés par Sillage (`profiles\<id>\`), jamais un dossier existant ajouté par l'utilisateur.
+dossiers créés par Sillage (exactement `profiles\<id>\`, `profiles::is_managed`), jamais un dossier existant ajouté par l'utilisateur.
 
 **Configuration partagée** (option par compte, active par défaut, `crates/sillage-core/src/sharing.rs`) : les
 réglages de la configuration habituelle (`~/.claude` ou `~/.codex`) sont reliés dans le dossier du compte, par lien
@@ -38,12 +38,15 @@ la configuration habituelle, sans modifier les autres clés ni les serveurs exis
 `.claude.json.avant-mcp-<horodatage>` est faite avant l'écriture ; l'opération est refusée si une session du compte
 tourne.
 
-**Reprise des conversations** (`crates/sillage-core/src/resume.rs`) : Sillage donne à chaque panneau Claude Code un identifiant de conversation (`--session-id`) et le relance avec `--resume`. Pour Codex, il lit seulement la première ligne (`session_meta` : identifiant, dossier, heure) des fichiers `rollout-*.jsonl` récents pour retrouver la conversation du panneau, puis lance `codex resume <id>`. Les identifiants sont validés (hexadécimal et tirets) avant d'être passés en argument.
+**Reprise des conversations** (`crates/sillage-core/src/resume.rs`) : Sillage donne à chaque panneau Claude Code un identifiant de conversation (`--session-id`) et le relance avec `--resume`. `/resume` et `/clear` changent d'identifiant : Sillage passe à Claude Code, par `--settings`, un hook `SessionStart` qui écrit l'entrée du hook (dont `session_id`) dans `agents/<panneau>.json` du dossier de données de Sillage (PowerShell sous Windows, `bash` sous macOS et Linux, même comportement) ; ce fichier est relu au lancement suivant (identifiant validé), et supprimé avec le panneau ou au changement de compte. Pour Codex, il lit seulement la première ligne (`session_meta` : identifiant, dossier, heure) des fichiers `rollout-*.jsonl` récents pour retrouver la conversation du panneau, puis lance `codex resume <id>`. Les identifiants sont validés (hexadécimal et tirets) avant d'être passés en argument.
+
+**Scripts `.cmd` / `.bat`** (`crates/sillage-core/src/sessions.rs`, `launch_program`) : ils sont lancés par `cmd.exe /d /c`, qui interprète certains caractères même entre guillemets. Un argument contenant `& | < > ^ % ! "` ou un saut de ligne est donc refusé au lancement, plutôt que transmis à `cmd.exe`.
 
 **Consommation** (`crates/sillage-core/src/usage.rs`) : Sillage lit l'historique local écrit par les outils
 (`projects/**/*.jsonl` pour Claude Code, `sessions/**/rollout-*.jsonl` pour Codex), fichiers modifiés depuis 7 jours,
 et n'en garde que les compteurs de jetons, le modèle, l'horodatage et, pour Codex, les limites du forfait qu'il
-enregistre lui-même. Le contenu des conversations n'est ni conservé ni transmis.
+enregistre lui-même. Ces relevés sont gardés en mémoire par fichier, tant que sa date et sa taille ne changent pas, pour ne relire que
+les fichiers modifiés. Le contenu des conversations n'est ni conservé ni transmis.
 
 **Limites du forfait Claude** (activé par défaut à la demande de l'utilisateur, désactivable par le réglage « Relever les limites du forfait Claude » dans Agents,
 `crates/sillage-core/src/claude_limits.rs` et `src-tauri/src/accounts.rs`) : c'est la seule exception à la règle « ne

@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { SessionKind } from "@/lib/ipc";
 import { askConfirm } from "@/design-system/confirm";
 import { toast } from "@/design-system/toast";
@@ -42,14 +43,14 @@ export function defaultProfileFor(
 export async function newSession(kind: SessionKind, profileId?: string | null) {
   const groupId = useWorkspace.getState().selectedId;
   if (!groupId) {
-    toast.info("Choisissez d'abord un groupe");
+    toast.info(t("Choisissez d'abord un groupe"));
     return;
   }
   const info = useSessions.getState().kinds.find((k) => k.kind === kind);
   if (info && !info.path) {
     toast.error(
-      `${info.label} est introuvable`,
-      "Installez-le ou ajoutez-le au PATH, puis relancez Sillage.",
+      t("{name} est introuvable", { name: t(info.label) }),
+      t("Installez-le ou ajoutez-le au PATH, puis relancez Sillage."),
     );
     return;
   }
@@ -89,17 +90,18 @@ export function resumeSessions() {
 export async function stopSession(id: string) {
   const def = useSessions.getState().defs.find((d) => d.id === id);
   const ok = await askConfirm({
-    title: `Arrêter « ${def?.title ?? "la session"} » ?`,
-    description:
+    title: t("Arrêter « {name} » ?", { name: def?.title ?? t("la session") }),
+    description: t(
       "Le processus et ses processus enfants seront arrêtés immédiatement. Le travail non enregistré sera perdu.",
-    confirmLabel: "Arrêter",
+    ),
+    confirmLabel: t("Arrêter"),
     danger: true,
   });
   if (!ok) return;
   try {
     await sessionsIpc.kill(id);
   } catch (e) {
-    toast.error("Arrêt impossible", errorMessage(e));
+    toast.error(t("Arrêt impossible"), errorMessage(e));
   }
 }
 
@@ -110,16 +112,25 @@ export async function closeSession(id: string) {
     runtime[id]?.state === "running" || runtime[id]?.state === "starting";
   if (running) {
     const ok = await askConfirm({
-      title: `Fermer « ${def?.title ?? "la session"} » ?`,
-      description:
+      title: t("Fermer « {name} » ?", { name: def?.title ?? t("la session") }),
+      description: t(
         "La session est en cours : son processus sera arrêté puis le panneau retiré du groupe.",
-      confirmLabel: "Arrêter et fermer",
+      ),
+      confirmLabel: t("Arrêter et fermer"),
       danger: true,
     });
     if (!ok) return;
   }
-  await remove(id);
-  terminals.dispose(id);
+  if (await remove(id)) terminals.dispose(id);
+}
+
+export async function deleteGroup(groupId: string) {
+  if (!(await useWorkspace.getState().deleteGroup(groupId))) return;
+  const gone = useSessions.getState().defs.filter((d) => d.groupId === groupId);
+  useSessions.setState((st) => ({
+    defs: st.defs.filter((d) => d.groupId !== groupId),
+  }));
+  for (const d of gone) terminals.dispose(d.id);
 }
 
 export function cycleFocus(step: 1 | -1) {

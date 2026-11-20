@@ -93,6 +93,12 @@ pub struct AccountStatus {
     pub organization: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct ClaudeJson {
+    #[serde(rename = "oauthAccount")]
+    oauth_account: Option<serde_json::Value>,
+}
+
 pub fn account_status(provider: Provider, dir: &Path) -> AccountStatus {
     if !dir.is_dir() {
         return AccountStatus::default();
@@ -101,8 +107,8 @@ pub fn account_status(provider: Provider, dir: &Path) -> AccountStatus {
         Provider::Claude => {
             let account = std::fs::read_to_string(dir.join(".claude.json"))
                 .ok()
-                .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-                .and_then(|v| v.get("oauthAccount").cloned())
+                .and_then(|t| serde_json::from_str::<ClaudeJson>(&t).ok())
+                .and_then(|c| c.oauth_account)
                 .filter(|a| a.is_object());
             let field = |k: &str| {
                 account
@@ -125,6 +131,10 @@ pub fn account_status(provider: Provider, dir: &Path) -> AccountStatus {
             organization: None,
         },
     }
+}
+
+pub fn is_managed(root: &Path, profile: &Profile) -> bool {
+    Path::new(&profile.config_dir) == root.join(&profile.id)
 }
 
 const COLS: &str = "id, name, color, provider, config_dir, share_config, position, created_at";
@@ -339,6 +349,34 @@ mod tests {
         assert_eq!(s.session(&c.id).unwrap().profile_id, Some(p.id.clone()));
         s.delete_profile(&p.id).unwrap();
         assert_eq!(s.session(&c.id).unwrap().profile_id, None);
+    }
+
+    #[test]
+    fn only_the_exact_managed_folder_counts_as_managed() {
+        let s = Store::open_in_memory().unwrap();
+        let root = Path::new("/data/profiles");
+        let own = s
+            .create_profile(new("Géré", Provider::Claude), |id| {
+                root.join(id).display().to_string()
+            })
+            .unwrap();
+        assert!(is_managed(root, &own));
+        for dir in [
+            "/data/profiles/..",
+            "/data/profiles/x/..",
+            "/home/u/.claude",
+        ] {
+            let p = s
+                .create_profile(
+                    NewProfile {
+                        config_dir: Some(dir.into()),
+                        ..new("Externe", Provider::Claude)
+                    },
+                    |_| unreachable!(),
+                )
+                .unwrap();
+            assert!(!is_managed(root, &p), "{dir}");
+        }
     }
 
     #[test]

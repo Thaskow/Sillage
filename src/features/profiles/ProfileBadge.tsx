@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { Profile, Provider } from "@/lib/ipc";
 import { kindIcon } from "@/features/sessions/visuals";
 import { Tooltip } from "@/design-system/primitives";
@@ -13,7 +14,7 @@ export function ProfileBadge({
   return (
     <Tooltip content={`${profile.name} — ${accountLine(profile)}`}>
       <span
-        aria-label={`Compte ${profile.name}`}
+        aria-label={t("Compte {name}", { name: profile.name })}
         style={{
           width: size,
           height: size,
@@ -41,7 +42,9 @@ export function AccountAvatar({
   const Icon = kindIcon[provider];
   const tile = (
     <span
-      aria-label={profile ? `Compte ${profile.name}` : undefined}
+      aria-label={
+        profile ? t("Compte {name}", { name: profile.name }) : undefined
+      }
       style={{ width: size, height: size }}
       className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-line bg-raised text-fg"
     >
@@ -72,9 +75,11 @@ export function AccountAvatar({
 
 export function DefaultAccountBadge({ size = 18 }: { size?: number }) {
   return (
-    <Tooltip content="Compte habituel de Windows (dossier .claude par défaut)">
+    <Tooltip
+      content={t("Compte habituel de Windows (dossier .claude par défaut)")}
+    >
       <span
-        aria-label="Compte habituel"
+        aria-label={t("Compte habituel")}
         style={{ width: size, height: size }}
         className="inline-flex shrink-0 items-center justify-center rounded-[5px] border border-line-strong text-[9.5px] leading-none font-semibold text-fg-3"
       >

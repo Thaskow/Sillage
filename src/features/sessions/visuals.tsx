@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import type { ComponentType } from "react";
 import { SquareTerminal, Terminal } from "lucide-react";
 import { ClaudeLogo, CodexLogo } from "@/design-system/brand-icons";
@@ -23,22 +24,24 @@ export function runtimeStatus(r: Runtime | undefined): {
 } {
   switch (r?.state) {
     case "running":
-      return { status: "running", label: "Processus actif" };
+      return { status: "running", label: t("Processus actif") };
     case "starting":
-      return { status: "running", label: "Démarrage…" };
+      return { status: "running", label: t("Démarrage…") };
     case "exited":
       return r.killed
-        ? { status: "idle", label: "Arrêtée" }
+        ? { status: "idle", label: t("Arrêtée") }
         : r.exitCode === 0
-          ? { status: "idle", label: "Terminée" }
+          ? { status: "idle", label: t("Terminée") }
           : {
               status: "error",
-              label: `Terminée avec le code ${r.exitCode ?? "inconnu"}`,
+              label: t("Terminée avec le code {code}", {
+                code: r.exitCode ?? t("inconnu"),
+              }),
             };
     case "error":
-      return { status: "error", label: r.error ?? "Erreur au démarrage" };
+      return { status: "error", label: r.error ?? t("Erreur au démarrage") };
     default:
-      return { status: "unknown", label: "Non démarrée" };
+      return { status: "unknown", label: t("Non démarrée") };
   }
 }
 

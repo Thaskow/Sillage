@@ -80,6 +80,21 @@ export const defaultBindings: Binding[] = [
     run: () => cycleFocus(1),
   },
   {
+    id: "close-pane-anywhere",
+    label: "Fermer le panneau actif, même depuis un terminal",
+    keys: "Ctrl+Shift+W",
+    run: () => {
+      const id = useSessions.getState().focusedId;
+      if (id) void closeSession(id);
+    },
+  },
+  {
+    id: "palette-anywhere",
+    label: "Recherche globale, même depuis un terminal",
+    keys: "Ctrl+Shift+P",
+    run: () => useUi.getState().setPalette(true),
+  },
+  {
     id: "prev-pane",
     label: "Session précédente",
     keys: "Ctrl+Shift+Tab",
@@ -99,9 +114,16 @@ export const defaultBindings: Binding[] = [
 ];
 
 const reserved = new Set(defaultBindings.map((b) => b.keys));
+// shell and agent editing keys (readline, Claude Code): left to the terminal
+const terminalKeys = new Set(["Ctrl+K", "Ctrl+B", "Ctrl+T", "Ctrl+W"]);
 
 export function isReservedCombo(e: KeyboardEvent): boolean {
-  return reserved.has(comboOf(e));
+  const combo = comboOf(e);
+  return reserved.has(combo) && !terminalKeys.has(combo);
+}
+
+function inTerminal(t: EventTarget | null): boolean {
+  return t instanceof Element && !!t.closest(".xterm");
 }
 
 function isTextEditing(t: HTMLElement | null): boolean {
@@ -114,9 +136,14 @@ function isTextEditing(t: HTMLElement | null): boolean {
 export function useHotkeys(bindings: Binding[] = defaultBindings) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const b = bindings.find((x) => x.keys === comboOf(e));
+      const combo = comboOf(e);
+      const b = bindings.find((x) => x.keys === combo);
       if (!b) return;
-      if (isTextEditing(e.target as HTMLElement | null) && b.id !== "palette")
+      if (terminalKeys.has(combo) && inTerminal(e.target)) return;
+      if (
+        isTextEditing(e.target as HTMLElement | null) &&
+        !b.id.startsWith("palette")
+      )
         return;
       e.preventDefault();
       e.stopPropagation();

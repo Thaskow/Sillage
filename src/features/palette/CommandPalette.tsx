@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import {
@@ -16,7 +17,7 @@ import type { ReactNode } from "react";
 import { GroupGlyph } from "@/design-system/group-visuals";
 import { Kbd } from "@/design-system/primitives";
 import { useUi } from "@/app/ui-store";
-import { useWorkspace } from "@/features/workspace/store";
+import { groupName, useWorkspace } from "@/features/workspace/store";
 import { useSettings } from "@/features/settings/store";
 
 export function CommandPalette() {
@@ -43,23 +44,25 @@ export function CommandPalette() {
           aria-describedby={undefined}
           className="anim-pop fixed top-[14%] left-1/2 z-50 w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-raised shadow-dialog"
         >
-          <RDialog.Title className="sr-only">Recherche globale</RDialog.Title>
-          <Command label="Recherche globale" loop>
+          <RDialog.Title className="sr-only">
+            {t("Recherche globale")}
+          </RDialog.Title>
+          <Command label={t("Recherche globale")} loop>
             <div className="flex items-center gap-2.5 border-b border-line px-4">
               <Search size={15} className="text-fg-3" />
               <Command.Input
                 autoFocus
-                placeholder="Rechercher un groupe ou une action…"
+                placeholder={t("Rechercher un groupe ou une action…")}
                 className="h-12 flex-1 bg-transparent text-[14px] outline-none placeholder:text-fg-3"
               />
-              <Kbd>Échap</Kbd>
+              <Kbd>{t("Échap")}</Kbd>
             </div>
             <Command.List className="max-h-[360px] overflow-y-auto p-1.5">
               <Command.Empty className="px-3 py-6 text-center text-fg-3">
-                Aucun résultat.
+                {t("Aucun résultat.")}
               </Command.Empty>
               {groups.length > 0 && (
-                <Command.Group heading="Groupes" className={groupCls}>
+                <Command.Group heading={t("Groupes")} className={groupCls}>
                   {groups.map((g) => (
                     <Item
                       key={g.id}
@@ -67,80 +70,82 @@ export function CommandPalette() {
                       icon={
                         <GroupGlyph icon={g.icon} color={g.color} size={18} />
                       }
-                      hint={g.archived ? "Archivé" : undefined}
+                      hint={g.archived ? t("Archivé") : undefined}
                       onSelect={run(() => {
                         select(g.id);
                         setView("workspace");
                       })}
                     >
-                      {g.name}
+                      {groupName(g)}
                     </Item>
                   ))}
                 </Command.Group>
               )}
-              <Command.Group heading="Actions" className={groupCls}>
+              <Command.Group heading={t("Actions")} className={groupCls}>
                 <Item
-                  value="nouveau groupe créer"
+                  value="nouveau groupe créer new group create"
                   icon={<Plus size={15} />}
                   onSelect={run(() => openGroupDialog({ mode: "create" }))}
                 >
-                  Nouveau groupe
+                  {t("Nouveau groupe")}
                 </Item>
                 <Item
                   value="espace de travail workspace"
                   icon={<LayoutGrid size={15} />}
                   onSelect={run(() => setView("workspace"))}
                 >
-                  Aller à l'espace de travail
+                  {t("Aller à l'espace de travail")}
                 </Item>
                 <Item
                   value="agents supervision"
                   icon={<Bot size={15} />}
                   onSelect={run(() => setView("agents"))}
                 >
-                  Aller aux agents
+                  {t("Aller aux agents")}
                 </Item>
                 <Item
-                  value="activité notifications"
+                  value="activité notifications activity"
                   icon={<Activity size={15} />}
                   onSelect={run(() => setView("activity"))}
                 >
-                  Aller à l'activité
+                  {t("Aller à l'activité")}
                 </Item>
                 <Item
-                  value="historique conversations"
+                  value="historique conversations history"
                   icon={<History size={15} />}
                   onSelect={run(() => setView("history"))}
                 >
-                  Aller à l'historique
+                  {t("Aller à l'historique")}
                 </Item>
                 <Item
-                  value="paramètres réglages"
+                  value="paramètres réglages settings preferences"
                   icon={<Settings size={15} />}
                   onSelect={run(() => setView("settings"))}
                 >
-                  Ouvrir les paramètres
+                  {t("Ouvrir les paramètres")}
                 </Item>
                 <Item
-                  value="thème clair sombre basculer"
+                  value="thème clair sombre basculer theme light dark toggle"
                   icon={dark ? <Sun size={15} /> : <Moon size={15} />}
                   onSelect={run(() =>
                     update({ theme: dark ? "light" : "dark" }),
                   )}
                 >
-                  {dark ? "Passer en thème clair" : "Passer en thème sombre"}
+                  {dark
+                    ? t("Passer en thème clair")
+                    : t("Passer en thème sombre")}
                 </Item>
                 <Item
                   value="barre latérale sidebar"
                   icon={<PanelLeft size={15} />}
-                  hint="Ctrl B"
+                  hint={t("Ctrl B")}
                   onSelect={run(() =>
                     update({ sidebarVisible: !settings.sidebarVisible }),
                   )}
                 >
                   {settings.sidebarVisible
-                    ? "Masquer la barre latérale"
-                    : "Afficher la barre latérale"}
+                    ? t("Masquer la barre latérale")
+                    : t("Afficher la barre latérale")}
                 </Item>
               </Command.Group>
             </Command.List>

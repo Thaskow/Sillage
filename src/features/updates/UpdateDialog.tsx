@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/design-system/primitives";
 import { Dialog } from "@/design-system/overlays";
@@ -16,14 +17,16 @@ export function UpdateButton() {
   return (
     <button
       onClick={() => open(true)}
-      className="transition-quick mr-2 flex h-[24px] items-center gap-1.5 rounded-md bg-accent/15 px-2 text-[12px] font-medium text-accent hover:bg-accent/25"
+      className="transition-quick mr-2 inline-flex h-[26px] items-center gap-1.5 rounded-md bg-accent/15 px-2.5 text-[12px] leading-none font-medium text-accent hover:bg-accent/25"
     >
       {status === "available" ? (
-        <Download size={12} />
+        <Download size={13} className="shrink-0" />
       ) : (
-        <Loader2 size={12} className="animate-spin" />
+        <Loader2 size={13} className="shrink-0 animate-spin" />
       )}
-      Mise à jour {version}
+      <span className="tabular-nums">
+        {t("Mise à jour {version}", { version: version ?? "" })}
+      </span>
     </button>
   );
 }
@@ -35,8 +38,12 @@ export function UpdateDialog() {
     <Dialog
       open={s.dialogOpen}
       onOpenChange={(o) => !busy && s.setDialogOpen(o)}
-      title={`Sillage ${s.version ?? ""} est disponible`}
-      description="La mise à jour est téléchargée depuis les versions publiées sur GitHub, sa signature est vérifiée, puis Sillage redémarre. Les sessions en cours sont fermées et reprises au redémarrage."
+      title={t("Sillage {version} est disponible", {
+        version: s.version ?? "",
+      })}
+      description={t(
+        "La mise à jour est téléchargée depuis les versions publiées sur GitHub, sa signature est vérifiée, puis Sillage redémarre. Les sessions en cours sont fermées et reprises au redémarrage.",
+      )}
       footer={
         <>
           <Button
@@ -44,7 +51,7 @@ export function UpdateDialog() {
             disabled={busy}
             onClick={() => s.setDialogOpen(false)}
           >
-            Plus tard
+            {t("Plus tard")}
           </Button>
           <Button
             variant="primary"
@@ -53,10 +60,10 @@ export function UpdateDialog() {
           >
             {busy && <Loader2 size={13} className="animate-spin" />}
             {s.status === "installing"
-              ? "Installation…"
+              ? t("Installation…")
               : s.status === "downloading"
-                ? "Téléchargement…"
-                : "Mettre à jour et redémarrer"}
+                ? t("Téléchargement…")
+                : t("Mettre à jour et redémarrer")}
           </Button>
         </>
       }
@@ -69,7 +76,7 @@ export function UpdateDialog() {
       {busy && (
         <div
           role="progressbar"
-          aria-label="Téléchargement de la mise à jour"
+          aria-label={t("Téléchargement de la mise à jour")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round((s.progress ?? 0) * 100)}

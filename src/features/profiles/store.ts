@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { create } from "zustand";
 import {
   errorMessage,
@@ -24,7 +25,7 @@ export const useProfiles = create<ProfilesState>((set, get) => ({
     try {
       set({ profiles: await profilesIpc.list() });
     } catch (e) {
-      toast.error("Comptes indisponibles", errorMessage(e));
+      toast.error(t("Comptes indisponibles"), errorMessage(e));
     }
   },
   create: async (p) => {
@@ -33,7 +34,7 @@ export const useProfiles = create<ProfilesState>((set, get) => ({
       set({ profiles: [...get().profiles, created] });
       return created;
     } catch (e) {
-      toast.error("Création du compte impossible", errorMessage(e));
+      toast.error(t("Création du compte impossible"), errorMessage(e));
       return null;
     }
   },
@@ -42,7 +43,7 @@ export const useProfiles = create<ProfilesState>((set, get) => ({
       const updated = await profilesIpc.update(id, patch);
       set({ profiles: get().profiles.map((p) => (p.id === id ? updated : p)) });
     } catch (e) {
-      toast.error("Modification impossible", errorMessage(e));
+      toast.error(t("Modification impossible"), errorMessage(e));
     }
   },
   remove: async (id, removeFiles) => {
@@ -51,7 +52,7 @@ export const useProfiles = create<ProfilesState>((set, get) => ({
       set({ profiles: get().profiles.filter((p) => p.id !== id) });
       return true;
     } catch (e) {
-      toast.error("Suppression impossible", errorMessage(e));
+      toast.error(t("Suppression impossible"), errorMessage(e));
       return false;
     }
   },
@@ -122,9 +123,9 @@ export function initials(name: string): string {
 }
 
 export function accountLine(p: Profile): string {
-  if (!p.status.signedIn) return "Non connecté";
+  if (!p.status.signedIn) return t("Non connecté");
   return (
     [p.status.email, p.status.organization].filter(Boolean).join(" · ") ||
-    "Connecté"
+    t("Connecté")
   );
 }

@@ -12,6 +12,7 @@ import { startUpdateChecks } from "./features/updates/store";
 import { useProfiles } from "./features/profiles/store";
 import { listen } from "@tauri-apps/api/event";
 import type { ExitEvent } from "./lib/ipc";
+import { resolveLang, setLang } from "./lib/i18n";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -30,6 +31,10 @@ async function boot() {
     useProfiles.getState().load(),
   ]);
   watchAppearance();
+  const applyLang = () =>
+    setLang(resolveLang(useSettings.getState().settings.language));
+  applyLang();
+  useSettings.subscribe(applyLang);
   new MutationObserver(() => terminals.retheme()).observe(
     document.documentElement,
     {

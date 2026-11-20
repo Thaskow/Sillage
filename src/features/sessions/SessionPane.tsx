@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import {
   UserRound,
@@ -24,7 +25,7 @@ import {
   Tooltip,
 } from "@/design-system/primitives";
 import { ContextMenu, type MenuEntry } from "@/design-system/overlays";
-import { useWorkspace } from "@/features/workspace/store";
+import { groupName, useWorkspace } from "@/features/workspace/store";
 import { useSessions } from "./store";
 import { terminals } from "./terminal-registry";
 import { closeSession, stopSession } from "./actions";
@@ -72,15 +73,19 @@ export function SessionPane({ def }: { def: SessionDef }) {
   }, [focused, def.id]);
 
   const menu: MenuEntry[] = [
-    { label: "Renommer", icon: <Pencil />, onSelect: () => setRenaming(true) },
     {
-      label: "Rechercher",
+      label: t("Renommer"),
+      icon: <Pencil />,
+      onSelect: () => setRenaming(true),
+    },
+    {
+      label: t("Rechercher"),
       icon: <Search />,
-      shortcut: "Ctrl Maj F",
+      shortcut: t("Ctrl Maj F"),
       onSelect: () => setSearching(true),
     },
     {
-      label: maximized ? "Restaurer la disposition" : "Agrandir",
+      label: maximized ? t("Restaurer la disposition") : t("Agrandir"),
       icon: <Maximize2 />,
       onSelect: () => toggleMaximize(def.id),
     },
@@ -90,7 +95,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
           ...groups
             .filter((g) => g.id !== def.groupId && !g.archived)
             .map((g) => ({
-              label: `Déplacer vers « ${g.name} »`,
+              label: t("Déplacer vers « {name} »", { name: groupName(g) }),
               icon: <FolderInput />,
               onSelect: () => move(def.id, g.id),
             })),
@@ -100,7 +105,9 @@ export function SessionPane({ def }: { def: SessionDef }) {
       ? ([
           "separator",
           ...[{ id: null, name: "habituel" }, ...accounts].map((p) => ({
-            label: p.id ? `Compte « ${p.name} »` : "Compte habituel",
+            label: p.id
+              ? t("Compte « {name} »", { name: p.name })
+              : t("Compte habituel"),
             icon: p.id ? <UserRound /> : <UserRound className="opacity-50" />,
             disabled: live || (def.profileId ?? null) === p.id,
             onSelect: () => setProfile(def.id, p.id),
@@ -111,7 +118,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
       ? ([
           "separator",
           {
-            label: "Nouvelle conversation au prochain lancement",
+            label: t("Nouvelle conversation au prochain lancement"),
             icon: <MessageSquarePlus />,
             disabled: live,
             onSelect: () => void useSessions.getState().resetAgent(def.id),
@@ -121,18 +128,18 @@ export function SessionPane({ def }: { def: SessionDef }) {
     "separator",
     live
       ? {
-          label: "Arrêter le processus…",
+          label: t("Arrêter le processus…"),
           icon: <Square />,
           danger: true,
           onSelect: () => stopSession(def.id),
         }
       : {
-          label: "Démarrer",
+          label: t("Démarrer"),
           icon: <Play />,
           onSelect: () => terminals.start(def.id),
         },
     {
-      label: "Fermer le panneau",
+      label: t("Fermer le panneau"),
       icon: <X />,
       shortcut: "Ctrl W",
       onSelect: () => closeSession(def.id),
@@ -179,7 +186,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
               autoFocus
               defaultValue={def.title}
               maxLength={80}
-              aria-label="Titre de la session"
+              aria-label={t("Titre de la session")}
               onFocus={(e) => e.currentTarget.select()}
               onKeyDown={(e) => {
                 e.stopPropagation();
@@ -209,22 +216,22 @@ export function SessionPane({ def }: { def: SessionDef }) {
           )}
           <div className="flex items-center opacity-70 transition-opacity hover:opacity-100">
             <IconButton
-              label="Rechercher"
-              shortcut="Ctrl Maj F"
+              label={t("Rechercher")}
+              shortcut={t("Ctrl Maj F")}
               size="sm"
               onClick={() => setSearching((v) => !v)}
             >
               <Search size={13} />
             </IconButton>
             <IconButton
-              label={maximized ? "Restaurer" : "Agrandir"}
+              label={maximized ? t("Restaurer") : t("Agrandir")}
               size="sm"
               onClick={() => toggleMaximize(def.id)}
             >
               {maximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </IconButton>
             <IconButton
-              label="Fermer"
+              label={t("Fermer")}
               shortcut="Ctrl W"
               size="sm"
               onClick={() => closeSession(def.id)}
@@ -248,7 +255,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
           >
             <Loader2 size={20} className="animate-spin text-accent" />
             <span className="text-[var(--fs-sm)]">
-              Ouverture de {def.title}…
+              {t("Ouverture de {name}…", { name: def.title })}
             </span>
           </div>
         )}
@@ -256,7 +263,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
           <div className="anim-fade absolute inset-x-0 bottom-0 flex items-center gap-3 border-t border-line bg-surface/95 px-3 py-2 backdrop-blur-sm">
             <StatusDot status={status} />
             <span className="min-w-0 flex-1 truncate text-[var(--fs-sm)] text-fg-2">
-              {state === "stopped" ? "Session non démarrée" : label}
+              {state === "stopped" ? t("Session non démarrée") : label}
             </span>
             <Button
               variant={state === "stopped" ? "primary" : "secondary"}
@@ -267,7 +274,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
               ) : (
                 <RotateCw size={13} />
               )}
-              {state === "stopped" ? "Démarrer" : "Relancer"}
+              {state === "stopped" ? t("Démarrer") : t("Relancer")}
             </Button>
           </div>
         )}
@@ -291,8 +298,8 @@ function SearchBar({ id, onClose }: { id: string; onClose: () => void }) {
       <input
         autoFocus
         value={q}
-        placeholder="Rechercher dans le terminal"
-        aria-label="Rechercher dans le terminal"
+        placeholder={t("Rechercher dans le terminal")}
+        aria-label={t("Rechercher dans le terminal")}
         onChange={(e) => {
           setQ(e.target.value);
           setMiss(!!e.target.value && !terminals.search(id, e.target.value));
@@ -307,13 +314,13 @@ function SearchBar({ id, onClose }: { id: string; onClose: () => void }) {
           miss && "text-err",
         )}
       />
-      <IconButton label="Précédent" size="sm" onClick={() => go(true)}>
+      <IconButton label={t("Précédent")} size="sm" onClick={() => go(true)}>
         <ChevronUp size={13} />
       </IconButton>
-      <IconButton label="Suivant" size="sm" onClick={() => go(false)}>
+      <IconButton label={t("Suivant")} size="sm" onClick={() => go(false)}>
         <ChevronDown size={13} />
       </IconButton>
-      <IconButton label="Fermer la recherche" size="sm" onClick={close}>
+      <IconButton label={t("Fermer la recherche")} size="sm" onClick={close}>
         <X size={13} />
       </IconButton>
     </div>

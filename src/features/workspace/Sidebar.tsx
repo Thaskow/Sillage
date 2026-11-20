@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
@@ -46,8 +47,9 @@ import {
 } from "@/design-system/overlays";
 import { GroupGlyph } from "@/design-system/group-visuals";
 import { useUi, type View } from "@/app/ui-store";
-import { SCRATCH_ID, useWorkspace } from "./store";
+import { groupName, SCRATCH_ID, useWorkspace } from "./store";
 import { useSessions } from "@/features/sessions/store";
+import { deleteGroup } from "@/features/sessions/actions";
 import { buildSections, moveWithin, type Section } from "./sections";
 
 const nav: Array<{ view: View; label: string; icon: ReactNode }> = [
@@ -92,7 +94,7 @@ export function Sidebar({ width }: { width: number }) {
       className="flex shrink-0 flex-col border-r border-line bg-surface"
     >
       <nav
-        aria-label="Navigation principale"
+        aria-label={t("Navigation principale")}
         className="flex flex-col gap-px px-2 pt-2"
       >
         {nav.map((n) => (
@@ -102,7 +104,7 @@ export function Sidebar({ width }: { width: number }) {
             icon={n.icon}
             onClick={() => setView(n.view)}
           >
-            {n.label}
+            {t(n.label)}
           </NavItem>
         ))}
       </nav>
@@ -119,7 +121,7 @@ export function Sidebar({ width }: { width: number }) {
               setView("workspace");
             }}
           >
-            <span className="flex-1">{scratch.name}</span>
+            <span className="flex-1">{groupName(scratch)}</span>
             {scratchCount > 0 && (
               <span className="text-[11px] text-fg-3 tabular-nums">
                 {scratchCount}
@@ -140,12 +142,12 @@ export function Sidebar({ width }: { width: number }) {
               onKeyDown={(e) =>
                 e.key === "Escape" && (setQuery(""), setSearching(false))
               }
-              placeholder="Filtrer les groupes"
-              aria-label="Filtrer les groupes"
+              placeholder={t("Filtrer les groupes")}
+              aria-label={t("Filtrer les groupes")}
               className="h-[24px] min-w-0 flex-1 bg-transparent text-[var(--fs-sm)] outline-none placeholder:text-fg-3"
             />
             <IconButton
-              label="Effacer le filtre"
+              label={t("Effacer le filtre")}
               size="sm"
               onClick={() => (setQuery(""), setSearching(false))}
             >
@@ -155,10 +157,10 @@ export function Sidebar({ width }: { width: number }) {
         ) : (
           <>
             <span className="flex-1 text-[11px] font-medium tracking-[0.04em] text-fg-3 uppercase">
-              Groupes
+              {t("Groupes")}
             </span>
             <IconButton
-              label="Filtrer"
+              label={t("Filtrer")}
               size="sm"
               onClick={() => setSearching(true)}
             >
@@ -168,22 +170,22 @@ export function Sidebar({ width }: { width: number }) {
               align="end"
               items={[
                 {
-                  label: "Nouveau groupe",
+                  label: t("Nouveau groupe"),
                   icon: <Plus />,
-                  shortcut: "Ctrl Maj N",
+                  shortcut: t("Ctrl Maj N"),
                   onSelect: () => openGroupDialog({ mode: "create" }),
                 },
                 {
-                  label: "Nouvelle catégorie",
+                  label: t("Nouvelle catégorie"),
                   icon: <FolderPlus />,
                   onSelect: async () => {
-                    const c = await createCategory("Nouvelle catégorie");
+                    const c = await createCategory(t("Nouvelle catégorie"));
                     if (c) setNewCategoryId(c.id);
                   },
                 },
               ]}
             >
-              <IconButton label="Ajouter" size="sm">
+              <IconButton label={t("Ajouter")} size="sm">
                 <Plus size={14} />
               </IconButton>
             </DropdownMenu>
@@ -194,16 +196,18 @@ export function Sidebar({ width }: { width: number }) {
       <div
         className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
         role="tree"
-        aria-label="Groupes"
+        aria-label={t("Groupes")}
       >
         {!hasGroups ? (
           <button
             onClick={() => openGroupDialog({ mode: "create" })}
             className="transition-quick mt-1 flex w-full flex-col items-start gap-0.5 rounded-lg border border-dashed border-line-strong px-3 py-3 text-left text-fg-2 hover:bg-hover"
           >
-            <span className="font-medium text-fg">Créer un premier groupe</span>
+            <span className="font-medium text-fg">
+              {t("Créer un premier groupe")}
+            </span>
             <span className="text-[var(--fs-sm)]">
-              Un espace pour vos agents et vos terminaux.
+              {t("Un espace pour vos agents et vos terminaux.")}
             </span>
           </button>
         ) : (
@@ -220,7 +224,7 @@ export function Sidebar({ width }: { width: number }) {
         )}
         {hasGroups && query && sections.every((s) => s.groups.length === 0) && (
           <p className="px-2 py-3 text-[var(--fs-sm)] text-fg-3">
-            Aucun groupe ne correspond à « {query} ».
+            {t("Aucun groupe ne correspond à « {query} ».", { query })}
           </p>
         )}
       </div>
@@ -231,7 +235,7 @@ export function Sidebar({ width }: { width: number }) {
           icon={<SettingsIcon size={15} />}
           onClick={() => setView("settings")}
         >
-          Paramètres
+          {t("Paramètres")}
         </NavItem>
       </div>
     </aside>
@@ -352,12 +356,12 @@ function SectionBlock({
         <ContextMenu
           items={[
             {
-              label: "Renommer",
+              label: t("Renommer"),
               icon: <Pencil />,
               onSelect: () => setRenaming(true),
             },
             {
-              label: "Supprimer la catégorie",
+              label: t("Supprimer la catégorie"),
               icon: <Trash2 />,
               danger: true,
               onSelect: () => setConfirm(true),
@@ -387,16 +391,18 @@ function SectionBlock({
       )}
       {cat && !collapsed && section.groups.length === 0 && (
         <p className="py-1 pl-7 text-[var(--fs-sm)] text-fg-3">
-          Vide — déplacez un groupe ici.
+          {t("Vide — déplacez un groupe ici.")}
         </p>
       )}
       {cat && (
         <ConfirmDialog
           open={confirm}
           onOpenChange={setConfirm}
-          title={`Supprimer « ${cat.name} » ?`}
-          description="Les groupes de cette catégorie sont conservés et retournent dans la liste principale."
-          confirmLabel="Supprimer"
+          title={t("Supprimer « {name} » ?", { name: cat.name })}
+          description={t(
+            "Les groupes de cette catégorie sont conservés et retournent dans la liste principale.",
+          )}
+          confirmLabel={t("Supprimer")}
           onConfirm={() => deleteCategory(cat.id)}
         />
       )}
@@ -420,7 +426,6 @@ function GroupRow({
   const categories = useWorkspace((s) => s.categories);
   const updateGroup = useWorkspace((s) => s.updateGroup);
   const duplicateGroup = useWorkspace((s) => s.duplicateGroup);
-  const deleteGroup = useWorkspace((s) => s.deleteGroup);
   const openGroupDialog = useUi((s) => s.openGroupDialog);
   const [renaming, setRenaming] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -445,7 +450,7 @@ function GroupRow({
     ...categories
       .filter((c) => c.id !== group.categoryId)
       .map((c) => ({
-        label: `Déplacer vers « ${c.name} »`,
+        label: t("Déplacer vers « {name} »", { name: c.name }),
         icon: <FolderInput />,
         onSelect: () =>
           updateGroup(group.id, { categoryId: c.id, pinned: false }),
@@ -453,7 +458,7 @@ function GroupRow({
     ...(group.categoryId
       ? [
           {
-            label: "Retirer de la catégorie",
+            label: t("Retirer de la catégorie"),
             icon: <FolderInput />,
             onSelect: () => updateGroup(group.id, { categoryId: null }),
           },
@@ -462,31 +467,31 @@ function GroupRow({
   ];
 
   const items: MenuEntry[] = [
-    { label: "Ouvrir", icon: <LayoutGrid />, onSelect: open },
+    { label: t("Ouvrir"), icon: <LayoutGrid />, onSelect: open },
     {
-      label: "Renommer",
+      label: t("Renommer"),
       icon: <Pencil />,
       shortcut: "F2",
       onSelect: () => setRenaming(true),
     },
     {
-      label: "Apparence…",
+      label: t("Apparence…"),
       icon: <Pencil />,
       onSelect: () => openGroupDialog({ mode: "edit", groupId: group.id }),
     },
     group.pinned
       ? {
-          label: "Désépingler",
+          label: t("Désépingler"),
           icon: <PinOff />,
           onSelect: () => updateGroup(group.id, { pinned: false }),
         }
       : {
-          label: "Épingler",
+          label: t("Épingler"),
           icon: <Pin />,
           onSelect: () => updateGroup(group.id, { pinned: true }),
         },
     {
-      label: "Dupliquer la configuration",
+      label: t("Dupliquer la configuration"),
       icon: <Copy />,
       onSelect: () => duplicateGroup(group.id),
     },
@@ -496,18 +501,18 @@ function GroupRow({
     "separator",
     group.archived
       ? {
-          label: "Désarchiver",
+          label: t("Désarchiver"),
           icon: <ArchiveRestore />,
           onSelect: () => updateGroup(group.id, { archived: false }),
         }
       : {
-          label: "Archiver",
+          label: t("Archiver"),
           icon: <Archive />,
           onSelect: () =>
             updateGroup(group.id, { archived: true, pinned: false }),
         },
     {
-      label: "Supprimer…",
+      label: t("Supprimer…"),
       icon: <Trash2 />,
       danger: true,
       onSelect: () => setConfirm(true),
@@ -571,7 +576,7 @@ function GroupRow({
             </span>
           )}
           {!renaming && group.pinned && index < 9 && (
-            <Tooltip content="Accès rapide" side="right">
+            <Tooltip content={t("Accès rapide")} side="right">
               <span className="opacity-0 group-hover/row:opacity-100">
                 <Kbd>Ctrl {index + 1}</Kbd>
               </span>
@@ -582,9 +587,11 @@ function GroupRow({
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title={`Supprimer « ${group.name} » ?`}
-        description="La configuration et la disposition du groupe seront supprimées. Les historiques Claude Code et vos fichiers ne sont pas touchés. Préférez l'archivage pour le retrouver plus tard."
-        confirmLabel="Supprimer le groupe"
+        title={t("Supprimer « {name} » ?", { name: group.name })}
+        description={t(
+          "La configuration et la disposition du groupe seront supprimées. Les historiques Claude Code et vos fichiers ne sont pas touchés. Préférez l'archivage pour le retrouver plus tard.",
+        )}
+        confirmLabel={t("Supprimer le groupe")}
         onConfirm={() => deleteGroup(group.id)}
       />
     </>
@@ -610,7 +617,7 @@ function InlineName({
       autoFocus
       value={value}
       maxLength={80}
-      aria-label="Nouveau nom"
+      aria-label={t("Nouveau nom")}
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => setValue(e.target.value)}
       onClick={(e) => e.stopPropagation()}

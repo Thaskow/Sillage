@@ -31,7 +31,23 @@
 
 - **Tauri 2 plutôt qu'Electron** : moteur WebView2 du système, binaire de quelques Mo, Rust pour la logique système.
 - **SQLite embarqué (`rusqlite` bundled)** : migrations par `PRAGMA user_version`, WAL, `quick_check` à l'ouverture.
-  Une base illisible est renommée (`sillage.corrupt-<horodatage>.db`) puis recréée : jamais supprimée.
+  Une base illisible est renommée (`sillage.corrupt-<horodatage>.db`) puis recréée : jamais supprimée. Seule une
+  vraie corruption (`SQLITE_CORRUPT`, `SQLITE_NOTADB`, `quick_check` en échec) déclenche ce chemin ; une base
+  verrouillée ou une migration en échec fait échouer le démarrage sans toucher au fichier.
+- **Une seule instance** (`tauri-plugin-single-instance`) : un second lancement ramène la fenêtre existante, pour
+  ne jamais relancer deux fois les mêmes conversations.
+- **Commandes Tauri** : sans `async`, une commande s'exécute sur le thread de l'interface. Celles qui touchent au
+  disque ou lancent un processus (`start_session`, comptes, suppressions, `available_kinds`, `usage_report`) sont
+  `async`. `write_session` et `resize_session` restent synchrones : sérialisées, les frappes ne peuvent pas
+  arriver dans le désordre.
+- **Sortie des terminaux** : un thread lit le PTY, un second envoie au WebView tout ce qui s'est accumulé depuis le
+  dernier envoi (512 Kio au plus, file bornée) ; aucune latence ajoutée, beaucoup moins de messages IPC sous forte
+  sortie. xterm.js rend en WebGL tant que le panneau est affiché (contexte libéré au détachement, retour au rendu DOM
+  si WebGL est absent ou perdu).
+- **Langues** : le français est la langue source. `t("texte français")` (`src/lib/i18n`) renvoie la traduction
+  de `en.ts` quand l'anglais est actif, sinon le texte tel quel. Un test vérifie que chaque `t("…")` littéral a sa
+  traduction et que les variables `{x}` concordent. Les messages d'erreur du Rust restent en français et sont
+  traduits à l'affichage (`translateError`). Changer de langue remonte l'arbre React (terminaux conservés).
 - **Fenêtre sans décoration système** : barre de titre dessinée par l'app (zone de glissement `data-tauri-drag-region`),
   boutons Windows reproduits. La fenêtre est affichée une fois le premier rendu prêt (évite le flash blanc), avec un
   filet de sécurité côté Rust après 2,5 s.

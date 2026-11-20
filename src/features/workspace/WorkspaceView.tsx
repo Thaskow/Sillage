@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useMemo } from "react";
 import {
   ChevronDown,
@@ -39,7 +40,12 @@ import { kindIcon } from "@/features/sessions/visuals";
 import { ClaudeLogo } from "@/design-system/brand-icons";
 import { terminals } from "@/features/sessions/terminal-registry";
 import { providerOf, useProfiles } from "@/features/profiles/store";
-import { SCRATCH_ID, selectSelectedGroup, useWorkspace } from "./store";
+import {
+  groupName,
+  SCRATCH_ID,
+  selectSelectedGroup,
+  useWorkspace,
+} from "./store";
 
 const autoStarted = new Set<string>();
 
@@ -59,11 +65,13 @@ function useKindMenu(agents: boolean): MenuEntry[] {
       k.kind === "claude"
         ? "Ctrl T"
         : k.kind === "powershell"
-          ? "Ctrl Maj T"
+          ? t("Ctrl Maj T")
           : undefined;
     if (!k.path || !accounts.length) {
       entries.push({
-        label: k.path ? k.label : `${k.label} (introuvable)`,
+        label: k.path
+          ? t(k.label)
+          : t("{name} (introuvable)", { name: t(k.label) }),
         icon: <Icon />,
         disabled: !k.path,
         shortcut,
@@ -77,10 +85,10 @@ function useKindMenu(agents: boolean): MenuEntry[] {
     for (const p of [null, ...accounts]) {
       entries.push({
         label: !p
-          ? `${k.label} · compte habituel`
+          ? t("{name} · compte habituel", { name: t(k.label) })
           : p.name.toLowerCase().startsWith(prefix)
             ? p.name
-            : `${k.label} · ${p.name}`,
+            : `${t(k.label)} · ${p.name}`,
         icon: (
           <span className="relative flex">
             <Icon size={14} />
@@ -99,7 +107,7 @@ function useKindMenu(agents: boolean): MenuEntry[] {
   }
   if (agents) {
     entries.push("separator", {
-      label: "Gérer les comptes…",
+      label: t("Gérer les comptes…"),
       icon: <UserRound />,
       onSelect: () => openAgents("settings"),
     });
@@ -144,21 +152,27 @@ export function WorkspaceView() {
     return (
       <EmptyState
         icon={<LayoutGrid size={18} />}
-        title={hasGroups ? "Sélectionnez un groupe" : "Bienvenue dans Sillage"}
+        title={
+          hasGroups ? t("Sélectionnez un groupe") : t("Bienvenue dans Sillage")
+        }
         action={
           !hasGroups && (
             <Button
               variant="primary"
               onClick={() => openGroupDialog({ mode: "create" })}
             >
-              <Plus size={14} /> Créer un groupe
+              <Plus size={14} /> {t("Créer un groupe")}
             </Button>
           )
         }
       >
         {hasGroups
-          ? "Choisissez un groupe dans la barre latérale pour retrouver ses sessions."
-          : "Organisez vos agents et vos terminaux en groupes : Travail, projets personnels, serveurs… Tout reste sur cette machine."}
+          ? t(
+              "Choisissez un groupe dans la barre latérale pour retrouver ses sessions.",
+            )
+          : t(
+              "Organisez vos agents et vos terminaux en groupes : Travail, projets personnels, serveurs… Tout reste sur cette machine.",
+            )}
       </EmptyState>
     );
   }
@@ -172,18 +186,18 @@ export function WorkspaceView() {
       <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-line px-4">
         <GroupGlyph icon={group.icon} color={group.color} size={22} />
         <h1 className="truncate text-[14px] font-semibold tracking-[-0.01em]">
-          {group.name}
+          {groupName(group)}
         </h1>
         {group.archived && (
           <span className="rounded-sm bg-sunken px-1.5 py-px text-[11px] text-fg-3">
-            Archivé
+            {t("Archivé")}
           </span>
         )}
         <div className="flex-1" />
         {sessions.length > 1 && (
           <div
             role="radiogroup"
-            aria-label="Disposition"
+            aria-label={t("Disposition")}
             className="mr-1 flex rounded-md border border-line bg-sunken p-0.5"
           >
             {(
@@ -194,11 +208,11 @@ export function WorkspaceView() {
                 ["tabs", "Onglets", GalleryHorizontalEnd],
               ] as const
             ).map(([value, label, Icon]) => (
-              <Tooltip key={value} content={label}>
+              <Tooltip key={value} content={t(label)}>
                 <button
                   role="radio"
                   aria-checked={layout.arrangement === value}
-                  aria-label={label}
+                  aria-label={t(label)}
                   onClick={() => setArrangement(value)}
                   className={cx(
                     "transition-quick flex size-[24px] items-center justify-center rounded-[5px]",
@@ -215,7 +229,7 @@ export function WorkspaceView() {
         )}
         <DropdownMenu align="end" items={terminalMenu}>
           <Button variant="ghost">
-            <SquareTerminal size={14} /> Terminal{" "}
+            <SquareTerminal size={14} /> {t("Terminal")}{" "}
             <ChevronDown size={12} className="text-fg-3" />
           </Button>
         </DropdownMenu>
@@ -230,7 +244,7 @@ export function WorkspaceView() {
             align="end"
             items={[
               {
-                label: "Vers un nouveau groupe…",
+                label: t("Vers un nouveau groupe…"),
                 icon: <Plus />,
                 onSelect: () =>
                   openGroupDialog({ mode: "create", fromScratch: true }),
@@ -238,14 +252,14 @@ export function WorkspaceView() {
               ...allGroups
                 .filter((g) => g.id !== SCRATCH_ID && !g.archived)
                 .map((g) => ({
-                  label: `Vers « ${g.name} »`,
+                  label: t("Vers « {name} »", { name: groupName(g) }),
                   icon: <FolderInput />,
                   onSelect: () => void moveAllSessions(SCRATCH_ID, g.id),
                 })),
             ]}
           >
             <Button variant="ghost" disabled={!sessions.length}>
-              <FolderInput size={14} /> Exporter{" "}
+              <FolderInput size={14} /> {t("Exporter")}{" "}
               <ChevronDown size={12} className="text-fg-3" />
             </Button>
           </DropdownMenu>
@@ -254,18 +268,18 @@ export function WorkspaceView() {
             align="end"
             items={[
               {
-                label: "Modifier l'apparence…",
+                label: t("Modifier l'apparence…"),
                 onSelect: () =>
                   openGroupDialog({ mode: "edit", groupId: group.id }),
               },
               {
-                label: group.pinned ? "Désépingler" : "Épingler",
+                label: group.pinned ? t("Désépingler") : t("Épingler"),
                 onSelect: () =>
                   updateGroup(group.id, { pinned: !group.pinned }),
               },
             ]}
           >
-            <IconButton label="Options du groupe">
+            <IconButton label={t("Options du groupe")}>
               <MoreHorizontal size={15} />
             </IconButton>
           </DropdownMenu>
@@ -277,7 +291,7 @@ export function WorkspaceView() {
         ) : (
           <EmptyState
             icon={<SquareTerminal size={18} />}
-            title="Aucune session dans ce groupe"
+            title={t("Aucune session dans ce groupe")}
             action={
               <div className="flex gap-2">
                 <Button variant="primary" onClick={() => newSession("claude")}>
@@ -291,14 +305,15 @@ export function WorkspaceView() {
                   <SquareTerminal size={14} />
                   <span className="leading-none">PowerShell</span>
                   <span className="ml-1 flex">
-                    <Kbd>Ctrl Maj T</Kbd>
+                    <Kbd>{t("Ctrl Maj T")}</Kbd>
                   </span>
                 </Button>
               </div>
             }
           >
-            Lancez un agent et des terminaux côte à côte. Ils continuent de
-            tourner quand vous changez de groupe.
+            {t(
+              "Lancez un agent et des terminaux côte à côte. Ils continuent de tourner quand vous changez de groupe.",
+            )}
           </EmptyState>
         )}
       </div>

@@ -29,9 +29,19 @@ pub enum Motion {
     Full,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    #[default]
+    System,
+    Fr,
+    En,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
+    pub language: Language,
     pub theme: Theme,
     pub density: Density,
     pub motion: Motion,
@@ -50,6 +60,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            language: Language::System,
             theme: Theme::System,
             density: Density::Comfortable,
             motion: Motion::System,
@@ -138,6 +149,7 @@ mod tests {
             .unwrap();
         let got = s.settings().unwrap();
         assert_eq!(got.theme, Theme::Light);
+        assert_eq!(got.language, Language::System);
         assert_eq!(got.density, Density::Comfortable);
     }
 }

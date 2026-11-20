@@ -1,8 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -153,50 +154,124 @@ pub(crate) fn lines(path: &Path) -> impl Iterator<Item = String> {
         .ok()
         .map(BufReader::new)
         .into_iter()
-        .flat_map(|r| r.lines().map_while(|l| l.ok()))
+        .flat_map(|r| {
+            r.split(b'\n')
+                .map_while(|l| l.ok())
+                .map(|l| String::from_utf8_lossy(&l).into_owned())
+        })
 }
 
 fn n(v: &Value, k: &str) -> u64 {
     v.get(k).and_then(Value::as_u64).unwrap_or(0)
 }
 
-fn claude(dir: &Path, acc: &mut Acc) {
-    let mut files = vec![];
-    recent_jsonl(&dir.join("projects"), acc.now - WEEK, &mut files);
-    let mut seen = HashSet::new();
-    for f in &files {
-        let mut active = false;
-        for line in lines(f) {
-            if !line.contains("\"usage\"") || !line.contains("\"assistant\"") {
-                continue;
+#[derive(Debug, Clone, PartialEq)]
+struct Entry {
+    at: i64,
+    model: String,
+    tokens: Tokens,
+    key: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+struct Parsed {
+    entries: Vec<Entry>,
+    limits: Option<Limits>,
+}
+
+#[derive(PartialEq)]
+struct Stamp {
+    modified: SystemTime,
+    len: u64,
+}
+
+type Cache = HashMap<PathBuf, (Stamp, Arc<Parsed>)>;
+
+static CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(Mutex::default);
+
+fn cache() -> MutexGuard<'static, Cache> {
+    CACHE.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn parsed(files: &[PathBuf], root: &Path, parse: fn(&Path) -> Parsed) -> Vec<Arc<Parsed>> {
+    let out = files
+        .iter()
+        .map(|f| {
+            let stamp = fs::metadata(f).ok().and_then(|m| {
+                Some(Stamp {
+                    modified: m.modified().ok()?,
+                    len: m.len(),
+                })
+            });
+            if let Some(hit) = cache()
+                .get(f)
+                .filter(|(s, _)| stamp.as_ref() == Some(s))
+                .map(|(_, p)| p.clone())
+            {
+                return hit;
             }
-            let Ok(v) = serde_json::from_str::<Value>(&line) else {
-                continue;
-            };
-            let msg = &v["message"];
-            let usage = &msg["usage"];
-            let (Some(at), true) = (
-                v["timestamp"].as_str().and_then(parse_timestamp),
-                usage.is_object(),
-            ) else {
-                continue;
-            };
-            let key = format!(
-                "{}:{}",
-                msg["id"].as_str().unwrap_or(""),
-                v["requestId"].as_str().unwrap_or("")
-            );
-            if key != ":" && !seen.insert(key) {
-                continue;
+            let p = Arc::new(parse(f));
+            if let Some(stamp) = stamp {
+                cache().insert(f.clone(), (stamp, p.clone()));
             }
-            let t = Tokens {
+            p
+        })
+        .collect();
+    let keep: HashSet<&PathBuf> = files.iter().collect();
+    cache().retain(|p, _| !p.starts_with(root) || keep.contains(p));
+    out
+}
+
+fn parse_claude(path: &Path) -> Parsed {
+    let mut out = Parsed::default();
+    for line in lines(path) {
+        if !line.contains("\"usage\"") || !line.contains("\"assistant\"") {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        let msg = &v["message"];
+        let usage = &msg["usage"];
+        let (Some(at), true) = (
+            v["timestamp"].as_str().and_then(parse_timestamp),
+            usage.is_object(),
+        ) else {
+            continue;
+        };
+        let key = format!(
+            "{}:{}",
+            msg["id"].as_str().unwrap_or(""),
+            v["requestId"].as_str().unwrap_or("")
+        );
+        out.entries.push(Entry {
+            at,
+            model: msg["model"].as_str().unwrap_or("").to_string(),
+            tokens: Tokens {
                 input: n(usage, "input_tokens"),
                 output: n(usage, "output_tokens"),
                 cache_read: n(usage, "cache_read_input_tokens"),
                 cache_write: n(usage, "cache_creation_input_tokens"),
-            };
-            acc.record(at, msg["model"].as_str().unwrap_or(""), t);
-            active |= at >= acc.now - WEEK;
+            },
+            key: (key != ":").then_some(key),
+        });
+    }
+    out
+}
+
+fn claude(dir: &Path, acc: &mut Acc) {
+    let root = dir.join("projects");
+    let mut files = vec![];
+    recent_jsonl(&root, acc.now - WEEK, &mut files);
+    let mut seen = HashSet::new();
+    for file in parsed(&files, &root, parse_claude) {
+        let mut active = false;
+        for e in &file.entries {
+            if e.key.as_ref().is_some_and(|k| !seen.insert(k.clone())) {
+                continue;
+            }
+            acc.record(e.at, &e.model, e.tokens);
+            active |= e.at >= acc.now - WEEK;
         }
         acc.usage.sessions += u32::from(active);
     }
@@ -220,67 +295,86 @@ fn window(v: &Value, at: i64) -> Option<Window> {
     })
 }
 
+fn parse_codex(path: &Path) -> Parsed {
+    let mut out = Parsed::default();
+    let mut model = String::new();
+    let mut prev = Tokens::default();
+    for line in lines(path) {
+        let turn = line.contains("\"turn_context\"");
+        if !turn && !line.contains("\"token_count\"") {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        let p = &v["payload"];
+        if turn {
+            if let Some(m) = p["model"].as_str() {
+                model = m.to_string();
+            }
+            continue;
+        }
+        let Some(at) = v["timestamp"].as_str().and_then(parse_timestamp) else {
+            continue;
+        };
+        if let Some(rl) = p.get("rate_limits").filter(|r| r.is_object()) {
+            if out.limits.as_ref().is_none_or(|l| l.observed_at <= at) {
+                out.limits = Some(Limits {
+                    primary: rl.get("primary").and_then(|w| window(w, at)),
+                    secondary: rl.get("secondary").and_then(|w| window(w, at)),
+                    observed_at: at,
+                });
+            }
+        }
+        let total = &p["info"]["total_token_usage"];
+        if !total.is_object() {
+            continue;
+        }
+        let cached = n(total, "cached_input_tokens");
+        let cur = Tokens {
+            input: n(total, "input_tokens").saturating_sub(cached),
+            output: n(total, "output_tokens"),
+            cache_read: cached,
+            cache_write: 0,
+        };
+        let delta = Tokens {
+            input: cur.input.saturating_sub(prev.input),
+            output: cur.output.saturating_sub(prev.output),
+            cache_read: cur.cache_read.saturating_sub(prev.cache_read),
+            cache_write: 0,
+        };
+        prev = cur;
+        if delta != Tokens::default() {
+            out.entries.push(Entry {
+                at,
+                model: model.clone(),
+                tokens: delta,
+                key: None,
+            });
+        }
+    }
+    out
+}
+
 fn codex(dir: &Path, acc: &mut Acc) {
+    let root = dir.join("sessions");
     let mut files = vec![];
-    recent_jsonl(&dir.join("sessions"), acc.now - WEEK, &mut files);
-    for f in &files {
-        let mut model = String::new();
-        let mut prev = Tokens::default();
+    recent_jsonl(&root, acc.now - WEEK, &mut files);
+    for file in parsed(&files, &root, parse_codex) {
+        if let Some(l) = &file.limits {
+            if acc
+                .usage
+                .limits
+                .as_ref()
+                .is_none_or(|cur| cur.observed_at <= l.observed_at)
+            {
+                acc.usage.limits = Some(l.clone());
+            }
+        }
         let mut active = false;
-        for line in lines(f) {
-            let turn = line.contains("\"turn_context\"");
-            if !turn && !line.contains("\"token_count\"") {
-                continue;
-            }
-            let Ok(v) = serde_json::from_str::<Value>(&line) else {
-                continue;
-            };
-            let p = &v["payload"];
-            if turn {
-                if let Some(m) = p["model"].as_str() {
-                    model = m.to_string();
-                }
-                continue;
-            }
-            let Some(at) = v["timestamp"].as_str().and_then(parse_timestamp) else {
-                continue;
-            };
-            if let Some(rl) = p.get("rate_limits").filter(|r| r.is_object()) {
-                if acc
-                    .usage
-                    .limits
-                    .as_ref()
-                    .is_none_or(|l| l.observed_at <= at)
-                {
-                    acc.usage.limits = Some(Limits {
-                        primary: rl.get("primary").and_then(|w| window(w, at)),
-                        secondary: rl.get("secondary").and_then(|w| window(w, at)),
-                        observed_at: at,
-                    });
-                }
-            }
-            let total = &p["info"]["total_token_usage"];
-            if !total.is_object() {
-                continue;
-            }
-            let cached = n(total, "cached_input_tokens");
-            let cur = Tokens {
-                input: n(total, "input_tokens").saturating_sub(cached),
-                output: n(total, "output_tokens"),
-                cache_read: cached,
-                cache_write: 0,
-            };
-            let delta = Tokens {
-                input: cur.input.saturating_sub(prev.input),
-                output: cur.output.saturating_sub(prev.output),
-                cache_read: cur.cache_read.saturating_sub(prev.cache_read),
-                cache_write: 0,
-            };
-            prev = cur;
-            if delta != Tokens::default() {
-                acc.record(at, &model, delta);
-                active |= at >= acc.now - WEEK;
-            }
+        for e in &file.entries {
+            acc.record(e.at, &e.model, e.tokens);
+            active |= e.at >= acc.now - WEEK;
         }
         acc.usage.sessions += u32::from(active);
     }
@@ -353,6 +447,15 @@ mod tests {
         assert_eq!(u.sessions, 1);
         assert_eq!(u.models[0].model, "claude-opus-5-5");
         assert!(u.limits.is_none());
+        assert_eq!(usage(Provider::Claude, d.path(), now, day), u);
+
+        let mut more = fs::read(p.join("s.jsonl")).unwrap();
+        more.extend_from_slice(b"\n\xff\xfe invalide\n");
+        more.extend_from_slice(line("c", "2026-11-19T09:30:00Z").as_bytes());
+        fs::write(p.join("s.jsonl"), more).unwrap();
+        let u = usage(Provider::Claude, d.path(), now, day);
+        assert_eq!(u.week.input, 30);
+        assert_eq!(u.today.output, 10);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { plural, t } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { LogIn, Pencil, Play, Plug, Plus, Trash2 } from "lucide-react";
 import { cx } from "@/lib/cx";
@@ -20,6 +21,7 @@ import { askConfirm } from "@/design-system/confirm";
 import { groupColors } from "@/design-system/group-visuals";
 import { newSession } from "@/features/sessions/actions";
 import { useSessions } from "@/features/sessions/store";
+import { useWorkspace } from "@/features/workspace/store";
 import { AccountAvatar } from "./ProfileBadge";
 import {
   accountLine,
@@ -48,36 +50,58 @@ export function AccountsSection() {
 
   const confirmRemove = async (p: Profile) => {
     const ok = await askConfirm({
-      title: `Retirer le compte « ${p.name} » ?`,
+      title: t("Retirer le compte « {name} » ?", { name: p.name }),
       description: p.managed
-        ? "Le compte disparaît de Sillage et son dossier de configuration (connexion, historique et réglages de ce compte) est supprimé. Les sessions qui l'utilisaient passent sur le compte habituel."
-        : `Le compte disparaît de Sillage. Son dossier (${p.configDir}) n'est pas touché. Les sessions qui l'utilisaient passent sur le compte habituel.`,
-      confirmLabel: "Retirer",
+        ? t(
+            "Le compte disparaît de Sillage et son dossier de configuration (connexion, historique et réglages de ce compte) est supprimé. Les sessions qui l'utilisaient passent sur le compte habituel.",
+          )
+        : t(
+            "Le compte disparaît de Sillage. Son dossier ({dir}) n'est pas touché. Les sessions qui l'utilisaient passent sur le compte habituel.",
+            { dir: p.configDir },
+          ),
+      confirmLabel: t("Retirer"),
       danger: true,
     });
-    if (ok) await remove(p.id, p.managed);
+    if (!ok || !(await remove(p.id, p.managed))) return;
+    useSessions.setState((st) => ({
+      defs: st.defs.map((d) =>
+        d.profileId === p.id ? { ...d, profileId: null } : d,
+      ),
+    }));
+    useWorkspace.setState((st) => ({
+      groups: st.groups.map((g) =>
+        g.defaultProfileId === p.id ? { ...g, defaultProfileId: null } : g,
+      ),
+    }));
   };
 
   const copyMcp = async (p: Profile) => {
     try {
       const r = await profilesIpc.copyMcp(p.id);
       if (!r.added.length && !r.skipped.length) {
-        toast.info("Aucun serveur MCP dans votre configuration habituelle");
+        toast.info(t("Aucun serveur MCP dans votre configuration habituelle"));
       } else {
         toast.info(
           r.added.length
-            ? `${r.added.length} serveur${r.added.length > 1 ? "s" : ""} MCP copié${r.added.length > 1 ? "s" : ""} vers « ${p.name} »`
-            : "Serveurs MCP déjà présents",
+            ? plural(
+                r.added.length,
+                "{n} serveur MCP copié vers « {name} »",
+                "{n} serveurs MCP copiés vers « {name} »",
+                { name: p.name },
+              )
+            : t("Serveurs MCP déjà présents"),
           [
             r.added.join(", "),
-            r.skipped.length ? `déjà présents : ${r.skipped.join(", ")}` : "",
+            r.skipped.length
+              ? t("déjà présents : {list}", { list: r.skipped.join(", ") })
+              : "",
           ]
             .filter(Boolean)
             .join(" · "),
         );
       }
     } catch (e) {
-      toast.error("Copie des serveurs MCP impossible", errorMessage(e));
+      toast.error(t("Copie des serveurs MCP impossible"), errorMessage(e));
     }
   };
 
@@ -85,22 +109,21 @@ export function AccountsSection() {
     <section className="mt-8">
       <div className="mb-1 flex items-end justify-between">
         <h2 className="text-[11px] font-medium tracking-[0.05em] text-fg-3 uppercase">
-          Comptes
+          {t("Comptes")}
         </h2>
         <Button
           variant="ghost"
           className="h-[var(--row-sm)] px-2 text-[var(--fs-sm)]"
           onClick={() => setEditing({ mode: "create" })}
         >
-          <Plus size={13} /> Ajouter un compte
+          <Plus size={13} /> {t("Ajouter un compte")}
         </Button>
       </div>
       <div className="divide-y divide-line rounded-lg border border-line bg-surface">
         <div className="px-4 py-3 text-[var(--fs-sm)] text-fg-3">
-          Chaque compte a son propre dossier de configuration : connexion,
-          historique et réglages restent séparés. Sillage ne lit ni ne copie
-          aucun jeton ; la connexion se fait dans Claude Code ou Codex. Sans
-          compte choisi, une session utilise votre configuration habituelle.
+          {t(
+            "Chaque compte a son propre dossier de configuration : connexion, historique et réglages restent séparés. Sillage ne copie ni ne conserve aucun jeton : il lit seulement celui de Claude Code pour relever les limites du forfait, ce que vous pouvez désactiver dans Agents. La connexion se fait dans Claude Code ou Codex. Sans compte choisi, une session utilise votre configuration habituelle.",
+          )}
         </div>
         {profiles.map((p) => (
           <div key={p.id} className="flex items-center gap-3 px-4 py-3">
@@ -136,28 +159,33 @@ export function AccountsSection() {
               title={
                 installed(p.provider)
                   ? undefined
-                  : `${providerLabel[p.provider]} est introuvable sur cette machine`
+                  : t("{name} est introuvable sur cette machine", {
+                      name: providerLabel[p.provider],
+                    })
               }
               onClick={() => void newSession(p.provider, p.id)}
             >
               {p.status.signedIn ? <Play size={13} /> : <LogIn size={13} />}
-              {p.status.signedIn ? "Ouvrir" : "Se connecter"}
+              {p.status.signedIn ? t("Ouvrir") : t("Se connecter")}
             </Button>
             {p.provider === "claude" && (
               <IconButton
-                label="Copier mes serveurs MCP habituels dans ce compte"
+                label={t("Copier mes serveurs MCP habituels dans ce compte")}
                 onClick={() => void copyMcp(p)}
               >
                 <Plug size={14} />
               </IconButton>
             )}
             <IconButton
-              label="Modifier"
+              label={t("Modifier")}
               onClick={() => setEditing({ mode: "edit", profile: p })}
             >
               <Pencil size={14} />
             </IconButton>
-            <IconButton label="Retirer" onClick={() => void confirmRemove(p)}>
+            <IconButton
+              label={t("Retirer")}
+              onClick={() => void confirmRemove(p)}
+            >
               <Trash2 size={14} />
             </IconButton>
           </div>
@@ -169,15 +197,19 @@ export function AccountsSection() {
 }
 
 function sharingLine(p: Profile): string {
-  if (!p.shareConfig) return "Configuration séparée";
-  if (!p.sharing.source) return "Configuration partagée : rien à partager";
+  if (!p.shareConfig) return t("Configuration séparée");
+  if (!p.sharing.source) return t("Configuration partagée : rien à partager");
   const parts = [
     p.sharing.shared.length
-      ? `Partagé avec la configuration habituelle : ${p.sharing.shared.join(", ")}`
-      : "Partage actif, rien encore à partager",
+      ? t("Partagé avec la configuration habituelle : {list}", {
+          list: p.sharing.shared.join(", "),
+        })
+      : t("Partage actif, rien encore à partager"),
   ];
   if (p.sharing.failed.length)
-    parts.push(`non partagé : ${p.sharing.failed.join(", ")}`);
+    parts.push(
+      t("non partagé : {list}", { list: p.sharing.failed.join(", ") }),
+    );
   return parts.join(" · ");
 }
 
@@ -248,24 +280,28 @@ function AccountDialog({
       open={!!editing}
       onOpenChange={(o) => !o && onClose()}
       title={
-        editing?.mode === "edit" ? "Modifier le compte" : "Ajouter un compte"
+        editing?.mode === "edit"
+          ? t("Modifier le compte")
+          : t("Ajouter un compte")
       }
       description={
         editing?.mode === "edit"
           ? undefined
-          : "Après l'ajout, « Se connecter » ouvre l'outil avec ce compte : connectez-vous avec la procédure officielle."
+          : t(
+              "Après l'ajout, « Se connecter » ouvre l'outil avec ce compte : connectez-vous avec la procédure officielle.",
+            )
       }
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Annuler
+            {t("Annuler")}
           </Button>
           <Button
             variant="primary"
             disabled={!name.trim() || busy}
             onClick={() => void submit()}
           >
-            {editing?.mode === "edit" ? "Enregistrer" : "Ajouter"}
+            {editing?.mode === "edit" ? t("Enregistrer") : t("Ajouter")}
           </Button>
         </>
       }
@@ -277,12 +313,12 @@ function AccountDialog({
           void submit();
         }}
       >
-        <Field label="Nom">
+        <Field label={t("Nom")}>
           <Input
             autoFocus
             value={name}
             maxLength={40}
-            placeholder="Perso, Travail, Client X…"
+            placeholder={t("Perso, Travail, Client X…")}
             onChange={(e) => {
               setName(e.target.value);
               setAutoName(false);
@@ -290,7 +326,7 @@ function AccountDialog({
           />
         </Field>
         {editing?.mode === "create" && (
-          <Field label="Outil">
+          <Field label={t("Outil")}>
             <div role="radiogroup" className="flex gap-2">
               {(["claude", "codex"] as Provider[]).map((p) => (
                 <button
@@ -321,13 +357,13 @@ function AccountDialog({
             </div>
           </Field>
         )}
-        <Field label="Couleur">
+        <Field label={t("Couleur")}>
           <div className="flex gap-2">
             {groupColors.map((c) => (
               <button
                 type="button"
                 key={c}
-                aria-label={`Couleur ${c}`}
+                aria-label={t("Couleur {color}", { color: c })}
                 aria-pressed={color === c}
                 onClick={() => setColor(c)}
                 style={{ background: c }}
@@ -344,32 +380,36 @@ function AccountDialog({
         <div className="flex items-start gap-3 rounded-md border border-line px-3 py-2.5">
           <div className="min-w-0 flex-1">
             <div className="font-medium">
-              Partager ma configuration habituelle
+              {t("Partager ma configuration habituelle")}
             </div>
             <div className="mt-0.5 text-[var(--fs-sm)] text-fg-3">
               {(editing?.mode === "edit"
                 ? editing.profile.provider
                 : provider) === "codex"
-                ? "config.toml (dont les serveurs MCP), AGENTS.md, prompts, skills et règles"
-                : "CLAUDE.md, settings.json (permissions, hooks, modèle), raccourcis, skills, agents, commandes, plugins et styles"}{" "}
-              restent les mêmes que dans votre configuration habituelle. La
-              connexion, l'historique et la mémoire restent propres à ce compte.
+                ? t(
+                    "config.toml (dont les serveurs MCP), AGENTS.md, prompts, skills et règles restent les mêmes que dans votre configuration habituelle. La connexion, l'historique et la mémoire restent propres à ce compte.",
+                  )
+                : t(
+                    "CLAUDE.md, settings.json (permissions, hooks, modèle), raccourcis, skills, agents, commandes, plugins et styles restent les mêmes que dans votre configuration habituelle. La connexion, l'historique et la mémoire restent propres à ce compte.",
+                  )}
             </div>
           </div>
           <Switch
             checked={share}
             onChange={setShare}
-            label="Partager ma configuration habituelle"
+            label={t("Partager ma configuration habituelle")}
           />
         </div>
         {editing?.mode === "create" && (
           <Field
-            label="Dossier existant (facultatif)"
-            hint="Laissez vide : Sillage crée un dossier dédié. Pour réutiliser un compte déjà connecté, indiquez son dossier de configuration."
+            label={t("Dossier existant (facultatif)")}
+            hint={t(
+              "Laissez vide : Sillage crée un dossier dédié. Pour réutiliser un compte déjà connecté, indiquez son dossier de configuration.",
+            )}
           >
             <Input
               value={dir}
-              placeholder="Dossier géré par Sillage"
+              placeholder={t("Dossier géré par Sillage")}
               onChange={(e) => setDir(e.target.value)}
               className="font-mono"
             />

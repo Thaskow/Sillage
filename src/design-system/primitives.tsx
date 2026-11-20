@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import {
   forwardRef,
   type ButtonHTMLAttributes,
@@ -180,7 +181,7 @@ export function StatusDot({
   return (
     <span
       role="img"
-      aria-label={statusLabel[status]}
+      aria-label={t(statusLabel[status])}
       className={cx(
         "inline-block size-[7px] shrink-0 rounded-full",
         status === "active" && "bg-ok",

@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { create } from "zustand";
 import {
   errorMessage,
@@ -17,8 +18,8 @@ interface WorkspaceState {
   load: () => Promise<void>;
   select: (id: string | null) => void;
   createGroup: (g: NewGroup) => Promise<Group | null>;
-  updateGroup: (id: string, patch: GroupPatch) => Promise<void>;
-  deleteGroup: (id: string) => Promise<void>;
+  updateGroup: (id: string, patch: GroupPatch) => Promise<boolean>;
+  deleteGroup: (id: string) => Promise<boolean>;
   duplicateGroup: (id: string) => Promise<void>;
   reorder: (ids: string[]) => Promise<void>;
   createCategory: (name: string) => Promise<Category | null>;
@@ -28,11 +29,17 @@ interface WorkspaceState {
 }
 
 const fail = (title: string) => (e: unknown) => {
-  toast.error(title, errorMessage(e));
+  toast.error(t(title), errorMessage(e));
   return null;
 };
 
 export const SCRATCH_ID = "libre";
+
+export function groupName(g: Group): string {
+  return g.id === SCRATCH_ID && g.name === "Espace libre"
+    ? t("Espace libre")
+    : g.name;
+}
 
 export const useWorkspace = create<WorkspaceState>((set, get) => ({
   groups: [],
@@ -66,18 +73,20 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     const updated = await ipc
       .updateGroup(id, patch)
       .catch(fail("Modification annulée"));
+    const previous = before.find((g) => g.id === id);
     set({
-      groups: updated
-        ? get().groups.map((g) => (g.id === id ? updated : g))
-        : before,
+      groups: get().groups.map((g) =>
+        g.id === id ? (updated ?? previous ?? g) : g,
+      ),
     });
+    return !!updated;
   },
 
   deleteGroup: async (id) => {
     const ok = await ipc
       .deleteGroup(id)
       .then(() => true, fail("Suppression impossible"));
-    if (!ok) return;
+    if (!ok) return false;
     set((s) => {
       const groups = s.groups.filter((g) => g.id !== id);
       const selectedId =
@@ -86,6 +95,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
           : s.selectedId;
       return { groups, selectedId };
     });
+    return true;
   },
 
   duplicateGroup: async (id) => {
@@ -132,9 +142,15 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
         x.id === id ? { ...x, collapsed: !x.collapsed } : x,
       ),
     }));
-    await ipc
+    const ok = await ipc
       .updateCategory(id, undefined, !c.collapsed)
-      .catch(fail("État non enregistré"));
+      .then(() => true, fail("État non enregistré"));
+    if (!ok)
+      set((s) => ({
+        categories: s.categories.map((x) =>
+          x.id === id ? { ...x, collapsed: c.collapsed } : x,
+        ),
+      }));
   },
 
   deleteCategory: async (id) => {

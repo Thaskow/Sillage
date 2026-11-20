@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, PanelLeft, Search, Square, X, Copy } from "lucide-react";
@@ -20,6 +21,7 @@ export function TitleBar() {
     if (!inTauri) return;
     const w = getCurrentWindow();
     let off: (() => void) | undefined;
+    let disposed = false;
     w.isMaximized()
       .then(setMaximized)
       .catch(() => {});
@@ -29,9 +31,15 @@ export function TitleBar() {
         .then(setMaximized)
         .catch(() => {}),
     )
-      .then((u) => (off = u))
+      .then((u) => {
+        if (disposed) u();
+        else off = u;
+      })
       .catch(() => {});
-    return () => off?.();
+    return () => {
+      disposed = true;
+      off?.();
+    };
   }, []);
 
   const win = () => getCurrentWindow();
@@ -45,8 +53,8 @@ export function TitleBar() {
         <IconButton
           label={
             sidebarVisible
-              ? "Masquer la barre latérale"
-              : "Afficher la barre latérale"
+              ? t("Masquer la barre latérale")
+              : t("Afficher la barre latérale")
           }
           shortcut="Ctrl B"
           size="sm"
@@ -71,7 +79,7 @@ export function TitleBar() {
       >
         <Search size={13} />
         <span className="flex-1 text-left text-[12px]">
-          Rechercher groupes, sessions, actions…
+          {t("Rechercher groupes, sessions, actions…")}
         </span>
         <Kbd>Ctrl K</Kbd>
       </button>
@@ -80,11 +88,11 @@ export function TitleBar() {
 
       <div className="flex h-full items-center">
         <UpdateButton />
-        <WindowButton label="Réduire" onClick={() => win().minimize()}>
+        <WindowButton label={t("Réduire")} onClick={() => win().minimize()}>
           <Minus size={14} strokeWidth={1.6} />
         </WindowButton>
         <WindowButton
-          label={maximized ? "Restaurer" : "Agrandir"}
+          label={maximized ? t("Restaurer") : t("Agrandir")}
           onClick={() => win().toggleMaximize()}
         >
           {maximized ? (
@@ -93,7 +101,7 @@ export function TitleBar() {
             <Square size={11} strokeWidth={1.6} />
           )}
         </WindowButton>
-        <WindowButton label="Fermer" danger onClick={() => win().close()}>
+        <WindowButton label={t("Fermer")} danger onClick={() => win().close()}>
           <X size={15} strokeWidth={1.6} />
         </WindowButton>
       </div>
