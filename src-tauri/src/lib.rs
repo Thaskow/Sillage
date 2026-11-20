@@ -97,6 +97,7 @@ pub fn run() {
             terminals::list_sessions,
             terminals::create_session,
             terminals::rename_session,
+            terminals::set_session_cwd,
             terminals::move_session,
             terminals::delete_session,
             terminals::start_session,

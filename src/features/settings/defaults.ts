@@ -15,4 +15,5 @@ export const defaultSettings: Settings = {
   defaultCodexProfile: null,
   claudeLimitsEnabled: true,
   autoUpdateCheck: true,
+  defaultCwd: null,
 };

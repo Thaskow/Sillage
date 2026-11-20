@@ -21,6 +21,7 @@ export interface Settings {
   defaultCodexProfile: string | null;
   claudeLimitsEnabled: boolean;
   autoUpdateCheck: boolean;
+  defaultCwd: string | null;
 }
 
 export interface Group {
@@ -169,6 +170,8 @@ export const sessionsIpc = {
     invoke<SessionDef>("create_session", { session }),
   rename: (id: string, title: string) =>
     invoke<SessionDef>("rename_session", { id, title }),
+  setCwd: (id: string, cwd: string | null) =>
+    invoke<SessionDef>("set_session_cwd", { id, cwd }),
   move: (id: string, groupId: string) =>
     invoke<SessionDef>("move_session", { id, groupId }),
   remove: (id: string) => invoke<void>("delete_session", { id }),

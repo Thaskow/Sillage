@@ -30,6 +30,7 @@ interface SessionsState {
   load: () => Promise<void>;
   create: (s: NewSession) => Promise<SessionDef | null>;
   rename: (id: string, title: string) => Promise<void>;
+  setCwd: (id: string, cwd: string | null) => Promise<boolean>;
   move: (id: string, groupId: string) => Promise<void>;
   remove: (id: string) => Promise<boolean>;
   setProfile: (id: string, profileId: string | null) => Promise<void>;
@@ -84,6 +85,17 @@ export const useSessions = create<SessionsState>((set) => ({
       set((st) => ({ defs: st.defs.map((d) => (d.id === id ? def : d)) }));
     } catch (e) {
       toast.error(t("Renommage impossible"), errorMessage(e));
+    }
+  },
+
+  setCwd: async (id, cwd) => {
+    try {
+      const def = await sessionsIpc.setCwd(id, cwd);
+      set((st) => ({ defs: st.defs.map((d) => (d.id === id ? def : d)) }));
+      return true;
+    } catch (e) {
+      toast.error(t("Changement de dossier impossible"), errorMessage(e));
+      return false;
     }
   },
 

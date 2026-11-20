@@ -6,6 +6,7 @@ import {
   Loader2,
   ChevronUp,
   FolderInput,
+  FolderOpen,
   Maximize2,
   MessageSquarePlus,
   Minimize2,
@@ -30,6 +31,7 @@ import { useSessions } from "./store";
 import { terminals } from "./terminal-registry";
 import { closeSession, stopSession } from "./actions";
 import { kindIcon, runtimeStatus } from "./visuals";
+import { FolderDialog } from "./FolderDialog";
 import { providerOf, useProfiles } from "@/features/profiles/store";
 import {
   DefaultAccountBadge,
@@ -55,6 +57,7 @@ export function SessionPane({ def }: { def: SessionDef }) {
   const profile = accounts.find((p) => p.id === def.profileId);
   const [renaming, setRenaming] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [choosingFolder, setChoosingFolder] = useState(false);
   const Icon = kindIcon[def.kind];
   const { status, label } = runtimeStatus(runtime);
   const state = runtime?.state ?? "stopped";
@@ -88,6 +91,12 @@ export function SessionPane({ def }: { def: SessionDef }) {
       label: maximized ? t("Restaurer la disposition") : t("Agrandir"),
       icon: <Maximize2 />,
       onSelect: () => toggleMaximize(def.id),
+    },
+    {
+      label: t("Dossier de travail…"),
+      icon: <FolderOpen />,
+      disabled: live,
+      onSelect: () => setChoosingFolder(true),
     },
     ...(groups.filter((g) => g.id !== def.groupId && !g.archived).length
       ? ([
@@ -241,6 +250,10 @@ export function SessionPane({ def }: { def: SessionDef }) {
           </div>
         </header>
       </ContextMenu>
+
+      {choosingFolder && (
+        <FolderDialog def={def} onClose={() => setChoosingFolder(false)} />
+      )}
 
       {searching && (
         <SearchBar id={def.id} onClose={() => setSearching(false)} />

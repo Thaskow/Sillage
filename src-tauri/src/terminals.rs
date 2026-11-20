@@ -102,6 +102,22 @@ pub fn rename_session(state: State<AppState>, id: String, title: String) -> Resu
 }
 
 #[tauri::command]
+pub fn set_session_cwd(
+    state: State<AppState>,
+    id: String,
+    cwd: Option<String>,
+) -> Result<SessionDef> {
+    if state.pty.is_running(&id) {
+        return Err(Error::Invalid(
+            "arrêtez la session avant de changer de dossier".into(),
+        ));
+    }
+    let def = with_store(&state, |s| s.set_session_cwd(&id, cwd.as_deref()))?;
+    forget_agent_files(&state, &id);
+    Ok(def)
+}
+
+#[tauri::command]
 pub fn move_session(state: State<AppState>, id: String, group_id: String) -> Result<SessionDef> {
     with_store(&state, |s| s.move_session(&id, &group_id))
 }
@@ -145,11 +161,14 @@ pub async fn start_session(
             }
         }
     }
-    let cwd = def
-        .cwd
-        .clone()
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
+    let cwd = def.cwd.clone().map(PathBuf::from).or_else(|| {
+        with_store(&state, |s| s.settings())
+            .ok()
+            .and_then(|s| s.default_cwd)
+            .map(PathBuf::from)
+            .filter(|d| d.is_dir())
+            .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from))
+    });
     let agent = agent_launch(&state, &def, cwd.as_ref())?;
     let (program, mut args) = match def.kind {
         SessionKind::Custom => {

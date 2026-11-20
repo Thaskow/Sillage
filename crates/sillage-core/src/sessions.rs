@@ -297,6 +297,21 @@ impl Store {
         self.session(id)
     }
 
+    pub fn set_session_cwd(&self, id: &str, cwd: Option<&str>) -> Result<SessionDef> {
+        self.session(id)?;
+        let cwd = clean_dir(cwd);
+        if let Some(dir) = &cwd {
+            if !Path::new(dir).is_dir() {
+                return Err(Error::Invalid(format!("le dossier {dir} n'existe pas")));
+            }
+        }
+        self.conn.execute(
+            "UPDATE sessions SET cwd = ?2, agent_session_id = NULL, agent_started_at = NULL WHERE id = ?1",
+            params![id, cwd],
+        )?;
+        self.session(id)
+    }
+
     pub fn move_session(&self, id: &str, group_id: &str) -> Result<SessionDef> {
         self.group(group_id)?;
         self.conn.execute(
@@ -321,6 +336,11 @@ impl Store {
             .execute("DELETE FROM sessions WHERE id = ?1", [id])?;
         Ok(())
     }
+}
+
+pub fn clean_dir(dir: Option<&str>) -> Option<String> {
+    dir.map(|d| d.trim().trim_matches('"').trim().to_string())
+        .filter(|d| !d.is_empty())
 }
 
 #[cfg(test)]
@@ -361,6 +381,28 @@ mod tests {
         assert_eq!(b.kind, SessionKind::Powershell);
         assert_eq!(b.title, "Build");
         assert_eq!((a.position, b.position), (0, 1));
+    }
+
+    #[test]
+    fn cwd_is_validated_and_resets_the_conversation() {
+        let s = Store::open_in_memory().unwrap();
+        let g = group(&s, "Dossier");
+        let a = s
+            .create_session(NewSession {
+                group_id: g,
+                kind: Some(SessionKind::Claude),
+                ..Default::default()
+            })
+            .unwrap();
+        s.set_agent_session(&a.id, Some("conv"), Some(1)).unwrap();
+        let dir = std::env::temp_dir().display().to_string();
+        let set = s
+            .set_session_cwd(&a.id, Some(&format!(" \"{dir}\" ")))
+            .unwrap();
+        assert_eq!(set.cwd.as_deref(), Some(dir.as_str()));
+        assert_eq!(set.agent_session_id, None);
+        assert!(s.set_session_cwd(&a.id, Some("/nope/absent")).is_err());
+        assert_eq!(s.set_session_cwd(&a.id, Some("  ")).unwrap().cwd, None);
     }
 
     #[test]

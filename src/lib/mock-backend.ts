@@ -194,6 +194,13 @@ export function installMockBackend(
         d.title = a.title as string;
         return d;
       }
+      case "set_session_cwd": {
+        const d = sessions.find((x) => x.id === a.id)!;
+        d.cwd = (a.cwd as string | null)?.trim() || null;
+        d.agentSessionId = null;
+        d.agentStartedAt = null;
+        return d;
+      }
       case "move_session": {
         const d = sessions.find((x) => x.id === a.id)!;
         d.groupId = a.groupId as string;

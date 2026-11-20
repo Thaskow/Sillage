@@ -55,6 +55,7 @@ pub struct Settings {
     pub default_codex_profile: Option<String>,
     pub claude_limits_enabled: bool,
     pub auto_update_check: bool,
+    pub default_cwd: Option<String>,
 }
 
 impl Default for Settings {
@@ -74,6 +75,7 @@ impl Default for Settings {
             default_codex_profile: None,
             claude_limits_enabled: true,
             auto_update_check: true,
+            default_cwd: None,
         }
     }
 }
@@ -83,6 +85,7 @@ impl Settings {
         self.sidebar_width = self.sidebar_width.clamp(200, 420);
         self.terminal_font_size = self.terminal_font_size.clamp(9, 24);
         self.scrollback_lines = self.scrollback_lines.clamp(1_000, 200_000);
+        self.default_cwd = crate::sessions::clean_dir(self.default_cwd.as_deref());
         self
     }
 }

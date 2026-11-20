@@ -114,6 +114,17 @@ export const en: Record<string, string> = {
   "Renommage impossible": "Could not rename",
   "Déplacement impossible": "Could not move",
   "Changement de compte impossible": "Could not change account",
+  "Changement de dossier impossible": "Could not change folder",
+  "Dossier de travail…": "Working folder…",
+  "Dossier de travail": "Working folder",
+  "Dossier de la session": "Session folder",
+  "Le dossier où démarre la session. Claude Code ne retient pas l'autorisation pour votre dossier personnel : choisissez un dossier de projet. Changer de dossier repart d'une nouvelle conversation.":
+    "Where the session starts. Claude Code never remembers trust for your home folder: pick a project folder. Changing folder starts a new conversation.",
+  "Vide : dossier par défaut des paramètres.":
+    "Empty: the default folder from Settings.",
+  "Dossier par défaut": "Default folder",
+  "Où démarrent les sessions sans dossier propre. Vide : votre dossier personnel, que Claude Code fait réautoriser à chaque lancement.":
+    "Where sessions without their own folder start. Empty: your home folder, which Claude Code asks to trust on every launch.",
   "Action impossible": "Action failed",
   "Fermeture impossible": "Could not close",
   "Le prochain lancement ouvrira une nouvelle conversation":

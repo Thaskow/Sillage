@@ -239,17 +239,15 @@ impl PtyManager {
         let s = self.get(id)?;
         *lock(&s.killed) = true;
         let result = lock(&s.killer).kill();
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                drop(lock(&s.writer).take());
-                drop(lock(&s.master).take());
-                match e.raw_os_error() {
-                    Some(0) => Ok(()),
-                    _ => Err(PtyError::Io(e.to_string())),
-                }
-            }
+        if cfg!(windows) || result.is_err() {
+            drop(lock(&s.writer).take());
+            drop(lock(&s.master).take());
         }
+        // portable-pty inverts TerminateProcess's result on Windows; closing the ConPTY kills it.
+        if cfg!(windows) {
+            return Ok(());
+        }
+        result.map_err(|e| PtyError::Io(e.to_string()))
     }
 
     pub fn kill_all(&self) {

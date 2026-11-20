@@ -2,7 +2,7 @@ import { t } from "@/lib/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { cx } from "@/lib/cx";
 import { ipc, type AppInfo, type Settings } from "@/lib/ipc";
-import { Button, Switch } from "@/design-system/primitives";
+import { Button, Input, Switch } from "@/design-system/primitives";
 import { useUi } from "@/app/ui-store";
 import { useUpdates } from "@/features/updates/store";
 import { useSettings } from "./store";
@@ -41,6 +41,25 @@ export function SettingsView() {
             <Button onClick={() => useUi.getState().openAgents("settings")}>
               {t("Ouvrir")}
             </Button>
+          </Row>
+          <Row
+            label={t("Dossier par défaut")}
+            hint={t(
+              "Où démarrent les sessions sans dossier propre. Vide : votre dossier personnel, que Claude Code fait réautoriser à chaque lancement.",
+            )}
+          >
+            <Input
+              key={s.defaultCwd ?? ""}
+              defaultValue={s.defaultCwd ?? ""}
+              spellCheck={false}
+              aria-label={t("Dossier par défaut")}
+              placeholder="C:\Users\…\projets"
+              className="w-[240px]"
+              onBlur={(e) => {
+                const v = e.currentTarget.value.trim() || null;
+                if (v !== s.defaultCwd) void update({ defaultCwd: v });
+              }}
+            />
           </Row>
         </Section>
 
