@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Columns2,
   FolderInput,
+  GalleryHorizontalEnd,
   LayoutGrid,
   MoreHorizontal,
   Plus,
@@ -190,6 +191,7 @@ export function WorkspaceView() {
                 ["row", "Côte à côte", Columns2],
                 ["column", "Empilés", Rows2],
                 ["grid", "Grille", LayoutGrid],
+                ["tabs", "Onglets", GalleryHorizontalEnd],
               ] as const
             ).map(([value, label, Icon]) => (
               <Tooltip key={value} content={label}>

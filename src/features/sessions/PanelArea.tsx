@@ -1,11 +1,15 @@
 import { Fragment, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import type { Group, SessionDef } from "@/lib/ipc";
 import { cx } from "@/lib/cx";
+import { StatusDot } from "@/design-system/primitives";
 import { useWorkspace } from "@/features/workspace/store";
 import { useSessions } from "./store";
 import { SessionPane } from "./SessionPane";
+import { closeSession } from "./actions";
+import { kindIcon, runtimeStatus } from "./visuals";
 
-export type Arrangement = "row" | "column" | "grid";
+export type Arrangement = "row" | "column" | "grid" | "tabs";
 
 export interface PanelLayout {
   arrangement: Arrangement;
@@ -16,7 +20,9 @@ export function readLayout(g: Group): PanelLayout {
   const l = (g.layout ?? {}) as Partial<PanelLayout>;
   return {
     arrangement:
-      l.arrangement === "column" || l.arrangement === "grid"
+      l.arrangement === "column" ||
+      l.arrangement === "grid" ||
+      l.arrangement === "tabs"
         ? l.arrangement
         : "row",
     weights: l.weights && typeof l.weights === "object" ? l.weights : {},
@@ -31,6 +37,7 @@ export function PanelArea({
   sessions: SessionDef[];
 }) {
   const maximizedId = useSessions((s) => s.maximizedId);
+  const focusedId = useSessions((s) => s.focusedId);
   const updateGroup = useWorkspace((s) => s.updateGroup);
   const layout = readLayout(group);
   const [live, setLive] = useState<Record<string, number> | null>(null);
@@ -46,6 +53,15 @@ export function PanelArea({
     () => Math.ceil(Math.sqrt(visible.length)),
     [visible.length],
   );
+
+  if (layout.arrangement === "tabs") {
+    const active =
+      sessions.find((s) => s.id === focusedId) ??
+      sessions.find((s) => s.id === lastTab.get(group.id)) ??
+      sessions[0]!;
+    lastTab.set(group.id, active.id);
+    return <TabbedPanels sessions={sessions} active={active} />;
+  }
 
   if (layout.arrangement === "grid" && !maximized) {
     return (
@@ -129,6 +145,92 @@ export function PanelArea({
           </div>
         </Fragment>
       ))}
+    </div>
+  );
+}
+
+const lastTab = new Map<string, string>();
+
+function TabbedPanels({
+  sessions,
+  active,
+}: {
+  sessions: SessionDef[];
+  active: SessionDef;
+}) {
+  const focus = useSessions((s) => s.focus);
+  const runtime = useSessions((s) => s.runtime);
+  const tabs = useRef<HTMLDivElement>(null);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const i = sessions.indexOf(active);
+    const n = sessions.length;
+    const next = sessions[(i + (e.key === "ArrowRight" ? 1 : n - 1)) % n]!;
+    focus(next.id);
+    tabs.current
+      ?.querySelector<HTMLElement>(`[data-tab="${next.id}"]`)
+      ?.focus();
+  };
+
+  return (
+    <div className="flex h-full flex-col p-1.5">
+      <div
+        ref={tabs}
+        role="tablist"
+        aria-label="Sessions du groupe"
+        onKeyDown={onKeyDown}
+        className="flex shrink-0 gap-0.5 overflow-x-auto pb-1.5"
+      >
+        {sessions.map((s) => {
+          const Icon = kindIcon[s.kind];
+          const selected = s.id === active.id;
+          return (
+            <div
+              key={s.id}
+              className={cx(
+                "group/tab transition-quick flex h-[30px] max-w-[220px] min-w-[120px] shrink-0 items-center rounded-md border",
+                selected
+                  ? "border-line-strong bg-[var(--terminal-bg)] text-fg"
+                  : "border-transparent text-fg-3 hover:bg-sunken hover:text-fg-2",
+              )}
+            >
+              <button
+                role="tab"
+                data-tab={s.id}
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => focus(s.id)}
+                onAuxClick={(e) => e.button === 1 && closeSession(s.id)}
+                className="flex h-full min-w-0 flex-1 items-center gap-2 pl-2.5 text-left text-[12.5px]"
+              >
+                <StatusDot status={runtimeStatus(runtime[s.id]).status} />
+                <Icon size={13} className="shrink-0" />
+                <span className={cx("truncate", selected && "font-medium")}>
+                  {s.title}
+                </span>
+              </button>
+              <button
+                aria-label={`Fermer ${s.title}`}
+                tabIndex={-1}
+                onClick={() => closeSession(s.id)}
+                className={cx(
+                  "mr-1 flex size-5 shrink-0 items-center justify-center rounded-[4px] text-fg-3 hover:bg-sunken hover:text-fg",
+                  selected
+                    ? "opacity-100"
+                    : "opacity-0 group-hover/tab:opacity-100",
+                )}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <div role="tabpanel" aria-label={active.title} className="min-h-0 flex-1">
+        <SessionPane key={active.id} def={active} />
+      </div>
     </div>
   );
 }
