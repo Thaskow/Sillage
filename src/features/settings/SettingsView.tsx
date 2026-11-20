@@ -6,8 +6,10 @@ import { Button, Switch } from "@/design-system/primitives";
 import { useUi } from "@/app/ui-store";
 import { useUpdates } from "@/features/updates/store";
 import { useSettings } from "./store";
+import { FlagFr, FlagGb } from "./flags";
+import { Monitor } from "lucide-react";
 
-type Option<T extends string> = { value: T; label: string };
+type Option<T extends string> = { value: T; label: string; icon?: ReactNode };
 
 export function SettingsView() {
   const s = useSettings((x) => x.settings);
@@ -51,9 +53,13 @@ export function SettingsView() {
               value={s.language}
               onChange={(language) => update({ language })}
               options={[
-                { value: "system", label: t("Système") },
-                { value: "fr", label: "Français" },
-                { value: "en", label: "English" },
+                {
+                  value: "system",
+                  label: t("Système"),
+                  icon: <Monitor size={13} aria-hidden />,
+                },
+                { value: "fr", label: "Français", icon: <FlagFr /> },
+                { value: "en", label: "English", icon: <FlagGb /> },
               ]}
             />
           </Row>
@@ -195,15 +201,17 @@ function Segmented<T extends string>({
           key={o.value}
           role="radio"
           aria-checked={value === o.value}
+          aria-label={o.icon ? o.label : undefined}
+          title={o.icon ? o.label : undefined}
           onClick={() => onChange(o.value)}
           className={cx(
-            "transition-quick h-[calc(var(--row-sm)-2px)] rounded-[5px] px-2.5 text-[var(--fs-sm)]",
+            "transition-quick inline-flex h-[calc(var(--row-sm)-2px)] items-center justify-center rounded-[5px] px-2.5 text-[var(--fs-sm)]",
             value === o.value
               ? "bg-raised font-medium text-fg shadow-[0_1px_2px_rgb(0_0_0/0.08)]"
-              : "text-fg-2 hover:text-fg",
+              : "text-fg-2 hover:text-fg [&>svg]:opacity-60 hover:[&>svg]:opacity-100",
           )}
         >
-          {o.label}
+          {o.icon ?? o.label}
         </button>
       ))}
     </div>

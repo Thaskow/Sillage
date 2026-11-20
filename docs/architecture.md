@@ -48,6 +48,10 @@
   de `en.ts` quand l'anglais est actif, sinon le texte tel quel. Un test vérifie que chaque `t("…")` littéral a sa
   traduction et que les variables `{x}` concordent. Les messages d'erreur du Rust restent en français et sont
   traduits à l'affichage (`translateError`). Changer de langue remonte l'arbre React (terminaux conservés).
+- **Police de l'interface** : Geist place le texte trop bas par rapport aux icônes (ascendante 1005, descendante 295,
+  centrée sur les capitales). `tools/fonts/geist-ui.py` régénère `src/design-system/fonts/geist-ui-*.woff2` avec des
+  métriques 940/360 : même rendu sous WebView2 et WebKit (`ascent-override` n'existe pas dans Safari). Licence OFL
+  jointe ; relancer le script après une mise à jour de `@fontsource-variable/geist`.
 - **Fenêtre sans décoration système** : barre de titre dessinée par l'app (zone de glissement `data-tauri-drag-region`),
   boutons Windows reproduits. La fenêtre est affichée une fois le premier rendu prêt (évite le flash blanc), avec un
   filet de sécurité côté Rust après 2,5 s.
