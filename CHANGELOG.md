@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Thaskow/Sillage/compare/v0.4.0...v0.4.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* lancement des sessions et alignement icônes/texte ([#11](https://github.com/Thaskow/Sillage/issues/11)) ([5e6d791](https://github.com/Thaskow/Sillage/commit/5e6d79135aa27fff9243b9da659073bfc884eb3c))
+
 ## [0.4.0](https://github.com/Thaskow/Sillage/compare/v0.3.1...v0.4.0) (2026-11-20)
 
 
