@@ -2,51 +2,70 @@ import { create } from "zustand";
 import { Button } from "./primitives";
 import { Dialog } from "./overlays";
 
-interface ConfirmRequest {
+export type Choice = "confirm" | "alternative" | "cancel";
+
+interface ChoiceRequest {
   title: string;
   description: string;
   confirmLabel: string;
   danger?: boolean;
-  resolve: (ok: boolean) => void;
+  alternativeLabel?: string;
+  resolve: (choice: Choice) => void;
 }
 
-const useConfirmStore = create<{ current: ConfirmRequest | null }>(() => ({
+const useConfirmStore = create<{ current: ChoiceRequest | null }>(() => ({
   current: null,
 }));
 
-export function askConfirm(
-  req: Omit<ConfirmRequest, "resolve">,
-): Promise<boolean> {
+export function askChoice(
+  req: Omit<ChoiceRequest, "resolve">,
+): Promise<Choice> {
   return new Promise((resolve) => {
-    useConfirmStore.getState().current?.resolve(false);
+    useConfirmStore.getState().current?.resolve("cancel");
     useConfirmStore.setState({ current: { ...req, resolve } });
   });
 }
 
+export async function askConfirm(
+  req: Omit<ChoiceRequest, "resolve" | "alternativeLabel">,
+): Promise<boolean> {
+  return (await askChoice(req)) === "confirm";
+}
+
 export function ConfirmHost() {
   const current = useConfirmStore((s) => s.current);
-  const close = (ok: boolean) => {
-    current?.resolve(ok);
+  const close = (choice: Choice) => {
+    current?.resolve(choice);
     useConfirmStore.setState({ current: null });
   };
+  const alternative = current?.alternativeLabel;
   return (
     <Dialog
       open={!!current}
-      onOpenChange={(o) => !o && close(false)}
+      onOpenChange={(o) => !o && close("cancel")}
       title={current?.title ?? ""}
       description={current?.description}
       footer={
         <>
-          <Button variant="ghost" onClick={() => close(false)}>
+          <Button variant="ghost" onClick={() => close("cancel")}>
             Annuler
           </Button>
           <Button
-            autoFocus
+            autoFocus={!alternative}
             variant={current?.danger ? "danger" : "primary"}
-            onClick={() => close(true)}
+            onClick={() => close("confirm")}
           >
             {current?.confirmLabel}
           </Button>
+          {alternative && (
+            <Button
+              autoFocus
+              variant="primary"
+              onClick={() => close("alternative")}
+            >
+              {alternative}
+            </Button>
+          )}
         </>
       }
     />

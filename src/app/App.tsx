@@ -14,10 +14,12 @@ import { CommandPalette } from "@/features/palette/CommandPalette";
 import { useSettings } from "@/features/settings/store";
 import { Toaster } from "@/design-system/toast";
 import { ConfirmHost } from "@/design-system/confirm";
+import { useCloseGuard } from "./shell/close-guard";
 import { AgentsView } from "@/features/agents/AgentsView";
 
 export function App() {
   useHotkeys();
+  useCloseGuard();
   const view = useUi((s) => s.view);
   const sidebarVisible = useSettings((s) => s.settings.sidebarVisible);
   const savedWidth = useSettings((s) => s.settings.sidebarWidth);

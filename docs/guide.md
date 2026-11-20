@@ -57,6 +57,12 @@ du compte.
 Les chiffres de jetons sont calculés depuis l'historique local des outils. Les limites viennent de Codex (qui les
 enregistre lui-même) et, pour Claude, d'Anthropic (réglage « Relever les limites du forfait Claude »).
 
+## Fermer la fenêtre
+
+Si des sessions sont en cours quand vous fermez Sillage, une fenêtre propose de **Réduire** Sillage plutôt que de
+le fermer : fermer arrêterait leurs processus et annulerait les prompts en cours. **Fermer quand même** quitte
+Sillage, **Annuler** ne fait rien.
+
 ## Reprise au redémarrage
 
 Les sessions actives quand vous fermez Sillage sont relancées à l'ouverture : Claude Code et Codex reprennent leur
