@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/Thaskow/Sillage/compare/v0.3.1...v0.4.0) (2026-11-20)
+
+
+### Features
+
+* démon sillage-host, états des agents, panneau Modifications et historique ([59a8e8b](https://github.com/Thaskow/Sillage/commit/59a8e8b71b22deff9096eb61c118417b55d69d9d))
+
+
+### Bug Fixes
+
+* **i18n:** traduire l'historique, le panneau Modifications et les états d'agent ([0aa10d1](https://github.com/Thaskow/Sillage/commit/0aa10d1e0812ac0ea2255c5ad6ea938ec1c79cfa))
+* **sessions:** dossier de travail par session et fermeture sous Windows ([8c20a0b](https://github.com/Thaskow/Sillage/commit/8c20a0bccf648e5dbe345aad0bba8e1e1e49d728))
+* **ui:** aligner texte et icônes, drapeaux pour la langue ([38d761a](https://github.com/Thaskow/Sillage/commit/38d761a68a1eeb6d9d7aa23df2b63c2f3e59d3b9))
+
 ## [0.3.1](https://github.com/Thaskow/Sillage/compare/v0.3.0...v0.3.1) (2026-11-20)
 
 
