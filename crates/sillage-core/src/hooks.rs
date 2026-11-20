@@ -151,7 +151,9 @@ mod tests {
 
     #[test]
     fn command_uses_the_bare_exe_name() {
-        let exe = Path::new("Program Files").join("Sillage").join("Sillage.exe");
+        let exe = Path::new("Program Files")
+            .join("Sillage")
+            .join("Sillage.exe");
         let c = hook_command(&exe, Activity::Done);
         assert_eq!(c.as_deref(), Some("Sillage.exe --hook done"));
         assert!(hook_command(Path::new(r"C:\x\my app.exe"), Activity::Done).is_none());
