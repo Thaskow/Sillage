@@ -264,7 +264,7 @@ function NavItem({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "transition-quick flex h-[var(--row)] w-full items-center gap-2.5 rounded-md px-2 text-left",
+        "transition-quick flex h-[var(--row)] w-full items-center gap-2.5 rounded-md px-2 text-left leading-none",
         active
           ? "bg-active font-medium text-fg"
           : "text-fg-2 hover:bg-hover hover:text-fg",

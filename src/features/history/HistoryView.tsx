@@ -222,7 +222,7 @@ export function HistoryView() {
                       </span>
                       {e.snippet && <Snippet text={e.snippet} />}
                     </div>
-                    <div className="flex shrink-0 items-center gap-1 opacity-60 group-focus-within/h:opacity-100 group-hover/h:opacity-100">
+                    <div className="flex shrink-0 items-center gap-1 self-center opacity-60 group-focus-within/h:opacity-100 group-hover/h:opacity-100">
                       <IconButton
                         label={t("Copier la commande de reprise")}
                         onClick={() => void copy(e)}

@@ -75,7 +75,7 @@ export function TitleBar() {
 
       <button
         onClick={() => setPalette(true)}
-        className="transition-quick absolute left-1/2 flex h-[26px] w-[min(380px,40vw)] -translate-x-1/2 items-center gap-2 rounded-md border border-line bg-bg px-2.5 text-fg-3 hover:border-line-strong hover:text-fg-2"
+        className="transition-quick absolute left-1/2 flex h-[26px] w-[min(380px,40vw)] -translate-x-1/2 items-center gap-2 rounded-md border border-line bg-bg px-2.5 leading-none text-fg-3 hover:border-line-strong hover:text-fg-2"
       >
         <Search size={13} />
         <span className="flex-1 text-left text-[12px]">

@@ -44,7 +44,9 @@ fn split(out: &SharedOut, exit: &SharedExit) -> (OutputFn, ExitFn) {
 
 /// The host outlives the app: send the app's environment so new sessions see its current state.
 fn current_env() -> impl Iterator<Item = (String, String)> {
-    std::env::vars_os().filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+    std::env::vars_os()
+        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+        .filter(|(k, _)| !k.is_empty() && !k.contains('='))
 }
 
 impl Backend {
