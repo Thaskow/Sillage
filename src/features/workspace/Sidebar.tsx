@@ -106,7 +106,14 @@ export function Sidebar({ width }: { width: number }) {
         {nav.map((n) => (
           <NavItem
             key={n.view}
-            active={view === n.view}
+            active={
+              view !== n.view
+                ? false
+                : n.view === "workspace" &&
+                    allGroups.some((g) => g.id === selectedId)
+                  ? "parent"
+                  : true
+            }
             icon={n.icon}
             onClick={() => setView(n.view)}
           >
@@ -254,7 +261,9 @@ function NavItem({
   onClick,
   children,
 }: {
-  active: boolean;
+  /** "parent" : la vue est ouverte mais c'est un de ses éléments (groupe,
+   * Espace libre) qui porte la sélection ; pas de fond, pour n'en avoir qu'un. */
+  active: boolean | "parent";
   icon: ReactNode;
   onClick: () => void;
   children: ReactNode;
@@ -262,12 +271,14 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      aria-current={active ? "page" : undefined}
+      aria-current={active === true ? "page" : undefined}
       className={cx(
         "transition-quick flex h-[var(--row)] w-full items-center gap-2.5 rounded-md px-2 text-left leading-none",
-        active
+        active === true
           ? "bg-active font-medium text-fg"
-          : "text-fg-2 hover:bg-hover hover:text-fg",
+          : active === "parent"
+            ? "font-medium text-fg hover:bg-hover"
+            : "text-fg-2 hover:bg-hover hover:text-fg",
       )}
     >
       <span className={active ? "text-accent" : "text-fg-3"}>{icon}</span>
