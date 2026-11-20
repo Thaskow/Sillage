@@ -96,6 +96,18 @@ function create(id: string): Host {
   );
 
   term.attachCustomKeyEventHandler((e) => {
+    if (
+      e.key === "Enter" &&
+      e.shiftKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey
+    ) {
+      e.preventDefault();
+      // ESC+CR: newline sequence understood by Claude Code / Codex prompts.
+      if (e.type === "keydown") term.input("\x1b\r", true);
+      return false;
+    }
     if (e.type !== "keydown") return true;
     if (isReservedCombo(e)) return false;
     const key = e.key.toLowerCase();
