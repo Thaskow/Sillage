@@ -106,7 +106,7 @@ export type MenuEntry = MenuItem | "separator";
 const menuSurface =
   "anim-pop z-50 min-w-48 rounded-lg border border-line bg-raised p-1 shadow-pop focus:outline-none";
 const itemCls =
-  "flex h-[var(--row-sm)] cursor-default items-center gap-2 rounded-[5px] px-2 outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-hover";
+  "flex h-[var(--row-sm)] cursor-default items-center gap-2 rounded-[5px] px-2 leading-none outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-hover";
 
 function renderItems<T extends typeof RContext | typeof RDropdown>(
   Lib: T,

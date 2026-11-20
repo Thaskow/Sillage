@@ -129,10 +129,12 @@ export function AccountsSection() {
           <div key={p.id} className="flex items-center gap-3 px-4 py-3">
             <AccountAvatar provider={p.provider} profile={p} size={30} />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-baseline gap-2">
                 <span className="truncate font-medium">{p.name}</span>
-                <span className="rounded-[4px] bg-sunken px-1.5 text-[10.5px] leading-[18px] text-fg-3">
-                  {providerLabel[p.provider]}
+                <span className="inline-flex h-[18px] shrink-0 items-center rounded-[4px] bg-sunken px-1.5 text-[10.5px] text-fg-3">
+                  <span className="[text-box:trim-both_cap_alphabetic]">
+                    {providerLabel[p.provider]}
+                  </span>
                 </span>
               </div>
               <div

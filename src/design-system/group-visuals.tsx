@@ -69,7 +69,7 @@ export function GroupGlyph({
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-[6px]"
+      className="flex shrink-0 items-center justify-center rounded-[6px]"
       style={{
         width: size,
         height: size,

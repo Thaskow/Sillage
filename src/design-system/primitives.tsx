@@ -19,7 +19,7 @@ export const Button = forwardRef<
       ref={ref}
       {...rest}
       className={cx(
-        "transition-quick inline-flex h-[var(--row)] items-center justify-center gap-1.5 rounded-md px-3 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-50",
+        "transition-quick inline-flex h-[var(--row)] items-center justify-center gap-1.5 rounded-md px-3 leading-none font-medium whitespace-nowrap [&_svg]:shrink-0 disabled:pointer-events-none disabled:opacity-50",
         variant === "primary" &&
           "bg-accent text-accent-fg hover:brightness-[1.06] active:brightness-95",
         variant === "secondary" &&
